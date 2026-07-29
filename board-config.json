@@ -1,0 +1,512 @@
+[
+  {
+    "id": "inner-start-01",
+    "ring": "inner",
+    "type": "start",
+    "params": {
+      "label": "Start"
+    }
+  },
+  {
+    "id": "inner-casino-02",
+    "ring": "inner",
+    "type": "casino",
+    "params": {
+      "label": "Казино"
+    }
+  },
+  {
+    "id": "inner-random-03",
+    "ring": "inner",
+    "type": "random",
+    "params": {
+      "label": "Random",
+      "minAmount": 100,
+      "maxAmount": 2000
+    }
+  },
+  {
+    "id": "inner-vacation-04",
+    "ring": "inner",
+    "type": "vacation",
+    "params": {
+      "label": "Відпустка",
+      "skipTurns": 1
+    }
+  },
+  {
+    "id": "inner-deal-05",
+    "ring": "inner",
+    "type": "deal",
+    "params": {
+      "label": "Сделка",
+      "incomeMin": 1000,
+      "incomeMax": 10000,
+      "importanceMin": 2,
+      "importanceMax": 12
+    }
+  },
+  {
+    "id": "inner-image-06",
+    "ring": "inner",
+    "type": "image",
+    "params": {
+      "label": "Імідж",
+      "priceMin": 100,
+      "priceMax": 3000,
+      "imageMin": 2,
+      "imageMax": 5
+    }
+  },
+  {
+    "id": "inner-negative-reputation-07",
+    "ring": "inner",
+    "type": "negative_reputation",
+    "params": {
+      "label": "Негативна репутація",
+      "imageDelta": -1
+    }
+  },
+  {
+    "id": "inner-salary-08",
+    "ring": "inner",
+    "type": "salary",
+    "params": {
+      "label": "Зарплата",
+      "imageMultiplier": 500
+    }
+  },
+  {
+    "id": "inner-deal-09",
+    "ring": "inner",
+    "type": "deal",
+    "params": {
+      "label": "Сделка",
+      "incomeMin": 1000,
+      "incomeMax": 10000,
+      "importanceMin": 2,
+      "importanceMax": 12
+    }
+  },
+  {
+    "id": "inner-random-10",
+    "ring": "inner",
+    "type": "random",
+    "params": {
+      "label": "Random",
+      "minAmount": 100,
+      "maxAmount": 2500
+    }
+  },
+  {
+    "id": "inner-casino-11",
+    "ring": "inner",
+    "type": "casino",
+    "params": {
+      "label": "Казино"
+    }
+  },
+  {
+    "id": "inner-image-12",
+    "ring": "inner",
+    "type": "image",
+    "params": {
+      "label": "Імідж",
+      "priceMin": 100,
+      "priceMax": 3000,
+      "imageMin": 2,
+      "imageMax": 5
+    }
+  },
+  {
+    "id": "inner-vacation-13",
+    "ring": "inner",
+    "type": "vacation",
+    "params": {
+      "label": "Відпустка",
+      "skipTurns": 1
+    }
+  },
+  {
+    "id": "inner-deal-14",
+    "ring": "inner",
+    "type": "deal",
+    "params": {
+      "label": "Сделка",
+      "incomeMin": 1000,
+      "incomeMax": 10000,
+      "importanceMin": 2,
+      "importanceMax": 12
+    }
+  },
+  {
+    "id": "inner-negative-reputation-15",
+    "ring": "inner",
+    "type": "negative_reputation",
+    "params": {
+      "label": "Негативна репутація",
+      "imageDelta": -1
+    }
+  },
+  {
+    "id": "inner-salary-16",
+    "ring": "inner",
+    "type": "salary",
+    "params": {
+      "label": "Зарплата",
+      "imageMultiplier": 500
+    }
+  },
+  {
+    "id": "outer-image-01",
+    "ring": "outer",
+    "type": "image",
+    "params": {
+      "label": "Імідж",
+      "entry": true,
+      "corner": "top_left",
+      "priceMin": 100,
+      "priceMax": 3000,
+      "imageMin": 2,
+      "imageMax": 5
+    }
+  },
+  {
+    "id": "outer-tender-ukraine-02",
+    "ring": "outer",
+    "type": "tender",
+    "params": {
+      "label": "Тендер: Україна",
+      "tenderId": "tender-ukraine",
+      "country": "Україна",
+      "buyout": 4000,
+      "price": 400
+    }
+  },
+  {
+    "id": "outer-tax-03",
+    "ring": "outer",
+    "type": "tax",
+    "params": {
+      "label": "Податкова",
+      "rate": 0.2
+    }
+  },
+  {
+    "id": "outer-company-logistics-04",
+    "ring": "outer",
+    "type": "company",
+    "params": {
+      "label": "Компанія: Логістика",
+      "companyId": "company-logistics",
+      "name": "Логістика",
+      "totalShares": 100,
+      "sharePrice": 120,
+      "inventoryPerShare": 1
+    }
+  },
+  {
+    "id": "outer-advertising-05",
+    "ring": "outer",
+    "type": "advertising",
+    "params": {
+      "label": "Реклама",
+      "priceMin": 100,
+      "priceMax": 1000,
+      "imageMin": 1,
+      "imageMax": 10
+    }
+  },
+  {
+    "id": "outer-casino-06",
+    "ring": "outer",
+    "type": "casino",
+    "params": {
+      "label": "Казино"
+    }
+  },
+  {
+    "id": "outer-client-07",
+    "ring": "outer",
+    "type": "client",
+    "params": {
+      "label": "Клієнт",
+      "relationshipMin": 1,
+      "relationshipMax": 6,
+      "percentStep": 10
+    }
+  },
+  {
+    "id": "outer-director-08",
+    "ring": "outer",
+    "type": "director",
+    "params": {
+      "label": "Директор",
+      "minOwnershipPercent": 51,
+      "votingCoefficient": 1,
+      "voteDifficulty": 7
+    }
+  },
+  {
+    "id": "outer-negative-reputation-09",
+    "ring": "outer",
+    "type": "negative_reputation",
+    "params": {
+      "label": "Негативна репутація",
+      "imageDelta": -1
+    }
+  },
+  {
+    "id": "outer-tender-germany-10",
+    "ring": "outer",
+    "type": "tender",
+    "params": {
+      "label": "Тендер: Німеччина",
+      "tenderId": "tender-germany",
+      "country": "Німеччина",
+      "buyout": 3000,
+      "price": 300
+    }
+  },
+  {
+    "id": "outer-company-retail-11",
+    "ring": "outer",
+    "type": "company",
+    "params": {
+      "label": "Компанія: Ритейл",
+      "companyId": "company-retail",
+      "name": "Ритейл",
+      "totalShares": 100,
+      "sharePrice": 100,
+      "inventoryPerShare": 1
+    }
+  },
+  {
+    "id": "outer-salary-12",
+    "ring": "outer",
+    "type": "salary",
+    "params": {
+      "label": "Зарплата",
+      "imageMultiplier": 500
+    }
+  },
+  {
+    "id": "outer-random-13",
+    "ring": "outer",
+    "type": "random",
+    "params": {
+      "label": "Random",
+      "minAmount": 500,
+      "maxAmount": 5000
+    }
+  },
+  {
+    "id": "outer-company-tech-14",
+    "ring": "outer",
+    "type": "company",
+    "params": {
+      "label": "Компанія: Технології",
+      "companyId": "company-tech",
+      "name": "Технології",
+      "totalShares": 100,
+      "sharePrice": 180,
+      "inventoryPerShare": 1
+    }
+  },
+  {
+    "id": "outer-positive-reputation-15",
+    "ring": "outer",
+    "type": "positive_reputation",
+    "params": {
+      "label": "Позитивна репутація",
+      "imageDelta": 1
+    }
+  },
+  {
+    "id": "outer-tender-mexico-16",
+    "ring": "outer",
+    "type": "tender",
+    "params": {
+      "label": "Тендер: Мексика",
+      "tenderId": "tender-mexico",
+      "country": "Мексика",
+      "buyout": 5000,
+      "price": 500
+    }
+  },
+  {
+    "id": "outer-vacation-17",
+    "ring": "outer",
+    "type": "vacation",
+    "params": {
+      "label": "Відпустка",
+      "skipTurns": 1
+    }
+  },
+  {
+    "id": "outer-company-finance-18",
+    "ring": "outer",
+    "type": "company",
+    "params": {
+      "label": "Компанія: Фінанси",
+      "companyId": "company-finance",
+      "name": "Фінанси",
+      "totalShares": 100,
+      "sharePrice": 200,
+      "inventoryPerShare": 1
+    }
+  },
+  {
+    "id": "outer-client-19",
+    "ring": "outer",
+    "type": "client",
+    "params": {
+      "label": "Клієнт",
+      "relationshipMin": 1,
+      "relationshipMax": 6,
+      "percentStep": 10
+    }
+  },
+  {
+    "id": "outer-tax-20",
+    "ring": "outer",
+    "type": "tax",
+    "params": {
+      "label": "Податкова",
+      "rate": 0.2
+    }
+  },
+  {
+    "id": "outer-tender-brazil-21",
+    "ring": "outer",
+    "type": "tender",
+    "params": {
+      "label": "Тендер: Бразилія",
+      "tenderId": "tender-brazil",
+      "country": "Бразилія",
+      "buyout": 8000,
+      "price": 800
+    }
+  },
+  {
+    "id": "outer-company-energy-22",
+    "ring": "outer",
+    "type": "company",
+    "params": {
+      "label": "Компанія: Енергетика",
+      "companyId": "company-energy",
+      "name": "Енергетика",
+      "totalShares": 100,
+      "sharePrice": 220,
+      "inventoryPerShare": 1
+    }
+  },
+  {
+    "id": "outer-advertising-23",
+    "ring": "outer",
+    "type": "advertising",
+    "params": {
+      "label": "Реклама",
+      "priceMin": 100,
+      "priceMax": 1000,
+      "imageMin": 1,
+      "imageMax": 10
+    }
+  },
+  {
+    "id": "outer-casino-24",
+    "ring": "outer",
+    "type": "casino",
+    "params": {
+      "label": "Казино"
+    }
+  },
+  {
+    "id": "outer-director-25",
+    "ring": "outer",
+    "type": "director",
+    "params": {
+      "label": "Директор",
+      "minOwnershipPercent": 51,
+      "votingCoefficient": 1,
+      "voteDifficulty": 7
+    }
+  },
+  {
+    "id": "outer-tender-italy-26",
+    "ring": "outer",
+    "type": "tender",
+    "params": {
+      "label": "Тендер: Італія",
+      "tenderId": "tender-italy",
+      "country": "Італія",
+      "buyout": 5000,
+      "price": 500
+    }
+  },
+  {
+    "id": "outer-company-media-27",
+    "ring": "outer",
+    "type": "company",
+    "params": {
+      "label": "Компанія: Медіа",
+      "companyId": "company-media",
+      "name": "Медіа",
+      "totalShares": 100,
+      "sharePrice": 160,
+      "inventoryPerShare": 1
+    }
+  },
+  {
+    "id": "outer-image-28",
+    "ring": "outer",
+    "type": "image",
+    "params": {
+      "label": "Імідж",
+      "priceMin": 100,
+      "priceMax": 3000,
+      "imageMin": 2,
+      "imageMax": 5
+    }
+  },
+  {
+    "id": "outer-random-29",
+    "ring": "outer",
+    "type": "random",
+    "params": {
+      "label": "Random",
+      "minAmount": 500,
+      "maxAmount": 5000
+    }
+  },
+  {
+    "id": "outer-tender-france-30",
+    "ring": "outer",
+    "type": "tender",
+    "params": {
+      "label": "Тендер: Франція",
+      "tenderId": "tender-france",
+      "country": "Франція",
+      "buyout": 6000,
+      "price": 600
+    }
+  },
+  {
+    "id": "outer-positive-reputation-31",
+    "ring": "outer",
+    "type": "positive_reputation",
+    "params": {
+      "label": "Позитивна репутація",
+      "imageDelta": 1
+    }
+  },
+  {
+    "id": "outer-salary-32",
+    "ring": "outer",
+    "type": "salary",
+    "params": {
+      "label": "Зарплата",
+      "imageMultiplier": 500
+    }
+  }
+]
