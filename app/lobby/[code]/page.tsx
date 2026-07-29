@@ -1,0 +1,513 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { ensureAnonymousSession, getSupabaseClient } from '@/lib/supabase';
+
+type GameStatus = 'lobby' | 'in_progress' | 'finished';
+
+type GameRow = {
+  id: string;
+  status: GameStatus;
+  join_code: string;
+  max_players: number;
+  current_turn_player_id: string | null;
+  created_by_user_id: string | null;
+  started_at: string | null;
+};
+
+type PlayerRow = {
+  id: string;
+  game_id: string;
+  user_id: string | null;
+  seat_number: number;
+  display_name: string;
+  is_bot: boolean;
+  created_at: string;
+};
+
+type LobbyRpcResult = {
+  game_id: string;
+  join_code: string;
+  player_id?: string;
+};
+
+type LobbyPageProps = {
+  params: {
+    code: string;
+  };
+};
+
+function normalizeJoinCode(value: string) {
+  return decodeURIComponent(value).trim().toUpperCase();
+}
+
+function readErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String(error.message);
+  }
+
+  return 'Невідома помилка';
+}
+
+function isLobbyRpcResult(value: unknown): value is LobbyRpcResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'game_id' in value &&
+    'join_code' in value
+  );
+}
+
+export default function LobbyPage({ params }: LobbyPageProps) {
+  const router = useRouter();
+  const joinCode = useMemo(() => normalizeJoinCode(params.code), [params.code]);
+  const isCreateRoute = joinCode === 'NEW';
+  const creationStartedRef = useRef(false);
+
+  const [game, setGame] = useState<GameRow | null>(null);
+  const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('Гравець');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const currentPlayer = useMemo(
+    () => players.find((player) => player.user_id === currentUserId) ?? null,
+    [currentUserId, players],
+  );
+  const isOwner = Boolean(game && currentUserId === game.created_by_user_id);
+  const canJoin = Boolean(game && game.status === 'lobby' && !currentPlayer);
+  const canStart = Boolean(
+    game &&
+      game.status === 'lobby' &&
+      isOwner &&
+      players.length >= 2 &&
+      players.length <= game.max_players,
+  );
+
+  const loadLobby = useCallback(
+    async (targetCode = joinCode) => {
+      if (targetCode === 'NEW') {
+        return;
+      }
+
+      const supabase = getSupabaseClient();
+      const { data: gameData, error: gameError } = await supabase
+        .from('games')
+        .select(
+          'id,status,join_code,max_players,current_turn_player_id,created_by_user_id,started_at',
+        )
+        .eq('join_code', targetCode)
+        .maybeSingle();
+
+      if (gameError) {
+        throw gameError;
+      }
+
+      if (!gameData) {
+        setGame(null);
+        setPlayers([]);
+        return;
+      }
+
+      const nextGame = gameData as GameRow;
+      const { data: playersData, error: playersError } = await supabase
+        .from('players')
+        .select('id,game_id,user_id,seat_number,display_name,is_bot,created_at')
+        .eq('game_id', nextGame.id)
+        .order('seat_number', { ascending: true });
+
+      if (playersError) {
+        throw playersError;
+      }
+
+      setGame(nextGame);
+      setPlayers((playersData ?? []) as PlayerRow[]);
+    },
+    [joinCode],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function createGame() {
+      if (!isCreateRoute || creationStartedRef.current) {
+        return;
+      }
+
+      const creationKey = 'economic-olympus-create-game-in-flight';
+
+      if (window.sessionStorage.getItem(creationKey)) {
+        setLoading(false);
+        return;
+      }
+
+      creationStartedRef.current = true;
+      window.sessionStorage.setItem(creationKey, '1');
+      setLoading(true);
+      setError(null);
+
+      try {
+        await ensureAnonymousSession();
+        const supabase = getSupabaseClient();
+        const { data, error: createError } = await supabase.rpc('create_game', {
+          p_display_name: displayName,
+          p_max_players: 6,
+        });
+
+        if (createError) {
+          throw createError;
+        }
+
+        if (!isLobbyRpcResult(data)) {
+          throw new Error('RPC create_game returned an unexpected response.');
+        }
+
+        if (!cancelled) {
+          router.replace(`/lobby/${data.join_code}`);
+        }
+      } catch (caughtError) {
+        if (!cancelled) {
+          setError(readErrorMessage(caughtError));
+          setLoading(false);
+        }
+      } finally {
+        window.sessionStorage.removeItem(creationKey);
+      }
+    }
+
+    createGame();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayName, isCreateRoute, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initializeLobby() {
+      if (isCreateRoute) {
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const user = await ensureAnonymousSession();
+
+        if (!cancelled) {
+          setCurrentUserId(user.id);
+        }
+
+        await loadLobby();
+      } catch (caughtError) {
+        if (!cancelled) {
+          setError(readErrorMessage(caughtError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initializeLobby();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateRoute, loadLobby]);
+
+  useEffect(() => {
+    if (!game?.id) {
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      .channel(`game:${game.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'players',
+          filter: `game_id=eq.${game.id}`,
+        },
+        () => {
+          void loadLobby(game.join_code);
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'games',
+          filter: `id=eq.${game.id}`,
+        },
+        () => {
+          void loadLobby(game.join_code);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [game?.id, game?.join_code, loadLobby]);
+
+  async function handleJoin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!game) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const user = await ensureAnonymousSession();
+      setCurrentUserId(user.id);
+
+      const supabase = getSupabaseClient();
+      const { data, error: joinError } = await supabase.rpc('join_game', {
+        p_display_name: displayName,
+        p_join_code: game.join_code,
+      });
+
+      if (joinError) {
+        throw joinError;
+      }
+
+      if (!isLobbyRpcResult(data)) {
+        throw new Error('RPC join_game returned an unexpected response.');
+      }
+
+      await loadLobby(game.join_code);
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleStartGame() {
+    if (!game || !canStart) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: startError } = await supabase.rpc('start_game', {
+        p_game_id: game.id,
+      });
+
+      if (startError) {
+        throw startError;
+      }
+
+      await loadLobby(game.join_code);
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <header className="border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
+          <Link className="text-lg font-semibold tracking-normal" href="/">
+            Економічна Монополія
+          </Link>
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
+            <Link className="transition hover:text-slate-950" href="/">
+              Головна
+            </Link>
+            <Link className="transition hover:text-slate-950" href="/rules">
+              Правила гри
+            </Link>
+            <Link className="text-slate-950" href="/lobby/new">
+              Почати гру
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-md border border-slate-200 bg-white p-6">
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-normal text-emerald-700">
+                Лобі
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">
+                {isCreateRoute ? 'Створення гри' : `Код гри ${joinCode}`}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                Приєднання дозволене тільки поки гра у статусі lobby. Після
+                старту серверна RPC-функція блокує нові входи незалежно від UI.
+              </p>
+            </div>
+
+            {game ? (
+              <div className="rounded-md border border-slate-200 px-4 py-3 text-sm">
+                <p className="font-semibold text-slate-500">Статус</p>
+                <p className="mt-1 text-lg font-bold text-slate-950">
+                  {game.status}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          {loading ? (
+            <p className="py-8 text-sm text-slate-600">
+              {isCreateRoute ? 'Створюємо лобі...' : 'Завантажуємо лобі...'}
+            </p>
+          ) : null}
+
+          {error ? (
+            <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+              {error}
+            </div>
+          ) : null}
+
+          {!loading && !game && !isCreateRoute ? (
+            <div className="mt-6 rounded-md border border-slate-200 bg-slate-50 p-5">
+              <h2 className="text-lg font-bold text-slate-950">
+                Лобі не знайдено
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Перевір код гри або створи нову сесію.
+              </p>
+              <Link
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                href="/lobby/new"
+              >
+                Створити гру
+              </Link>
+            </div>
+          ) : null}
+
+          {game ? (
+            <div className="mt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-950">Гравці</h2>
+                <span className="text-sm font-semibold text-slate-500">
+                  {players.length}/{game.max_players}
+                </span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {players.map((player) => (
+                  <article
+                    className="rounded-md border border-slate-200 bg-slate-50 p-4"
+                    key={player.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-500">
+                          Місце {player.seat_number}
+                        </p>
+                        <h3 className="mt-1 text-lg font-bold text-slate-950">
+                          {player.display_name}
+                        </h3>
+                      </div>
+                      {player.user_id === currentUserId ? (
+                        <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-800">
+                          Ви
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-3 text-sm text-slate-600">
+                      {player.is_bot ? 'Бот' : 'Гравець'} · стартовий баланс
+                      10 000 $
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="space-y-4">
+          <section className="rounded-md border border-slate-200 bg-white p-5">
+            <h2 className="text-lg font-bold text-slate-950">Код запрошення</h2>
+            <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center text-2xl font-bold tracking-normal">
+              {isCreateRoute ? '...' : joinCode}
+            </div>
+          </section>
+
+          {game && canJoin ? (
+            <form
+              className="rounded-md border border-slate-200 bg-white p-5"
+              onSubmit={handleJoin}
+            >
+              <label
+                className="text-sm font-semibold text-slate-700"
+                htmlFor="display-name"
+              >
+                Ім'я гравця
+              </label>
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+                id="display-name"
+                maxLength={32}
+                onChange={(event) => setDisplayName(event.target.value)}
+                value={displayName}
+              />
+              <button
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={busy || !displayName.trim()}
+                type="submit"
+              >
+                Приєднатися
+              </button>
+            </form>
+          ) : null}
+
+          {game && currentPlayer ? (
+            <section className="rounded-md border border-slate-200 bg-white p-5">
+              <h2 className="text-lg font-bold text-slate-950">
+                Керування стартом
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Старт доступний власнику лобі, коли приєднано від 2 до 6
+                гравців.
+              </p>
+              <button
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={busy || !canStart}
+                onClick={handleStartGame}
+                type="button"
+              >
+                {game.status === 'lobby' ? 'Почати гру' : 'Гру почато'}
+              </button>
+              {!isOwner ? (
+                <p className="mt-3 text-xs font-medium text-slate-500">
+                  Почати гру може тільки власник сесії.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+        </aside>
+      </main>
+    </div>
+  );
+}
