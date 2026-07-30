@@ -214,16 +214,16 @@ begin
     raise exception 'game_is_full';
   end if;
 
-  select seat_number
+  select seats.seat_number
   into v_seat_number
   from generate_series(1, v_game.max_players) as seats(seat_number)
   where not exists (
     select 1
     from public.players p
     where p.game_id = v_game.id
-      and p.seat_number = seat_number
+      and p.seat_number = seats.seat_number
   )
-  order by seat_number
+  order by seats.seat_number
   limit 1;
 
   if v_seat_number is null then

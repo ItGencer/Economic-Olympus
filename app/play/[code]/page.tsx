@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Board from '@/components/Board';
 import AuthButton from '@/components/AuthButton';
@@ -501,6 +501,7 @@ function PendingActionPanel({
 
 export default function PlayPage({ params }: PlayPageProps) {
   const joinCode = useMemo(() => normalizeJoinCode(params.code), [params.code]);
+  const botTurnInFlightRef = useRef<string | null>(null);
   const storageKey = useMemo(
     () => `economic-olympus-active-player:${joinCode}`,
     [joinCode],
@@ -520,6 +521,9 @@ export default function PlayPage({ params }: PlayPageProps) {
     refreshing,
   } = useGameRealtime({ joinCode });
   const [activePlayerId, setActivePlayerId] = useState<PlayerId | null>(null);
+  const [botTurnError, setBotTurnError] = useState<string | null>(null);
+  const [thinkingBotPlayerId, setThinkingBotPlayerId] =
+    useState<PlayerId | null>(null);
 
   useEffect(() => {
     try {
@@ -573,6 +577,78 @@ export default function PlayPage({ params }: PlayPageProps) {
     !isActivePlayerTurn ||
     !canControlActivePlayer ||
     Boolean(gameState.pendingAction);
+
+  useEffect(() => {
+    if (
+      !gameState ||
+      gameState.status !== 'in_progress' ||
+      !currentTurnPlayer?.isBot
+    ) {
+      setThinkingBotPlayerId(null);
+      return;
+    }
+
+    const pendingActionKey = gameState.pendingAction?.id ?? 'roll';
+    const gameId = gameState.gameId;
+    const botPlayerId = currentTurnPlayer.id;
+    const turnKey = [
+      gameId,
+      botPlayerId,
+      gameState.turn?.number ?? 0,
+      pendingActionKey,
+    ].join(':');
+
+    if (botTurnInFlightRef.current === turnKey) {
+      return;
+    }
+
+    setBotTurnError(null);
+    setThinkingBotPlayerId(currentTurnPlayer.id);
+
+    const delay = 1200 + Math.floor(Math.random() * 801);
+    const timeoutId = window.setTimeout(() => {
+      botTurnInFlightRef.current = turnKey;
+
+      async function resolveBotTurn() {
+        try {
+          const supabase = getSupabaseClient();
+          const { error: botError } = await supabase.rpc('resolve_bot_turn', {
+            p_game_id: gameId,
+          });
+
+          if (botError) {
+            throw botError;
+          }
+
+          await refresh();
+        } catch (caughtError) {
+          setBotTurnError(readErrorMessage(caughtError));
+        } finally {
+          if (botTurnInFlightRef.current === turnKey) {
+            botTurnInFlightRef.current = null;
+          }
+
+          setThinkingBotPlayerId((playerId) =>
+            playerId === botPlayerId ? null : playerId,
+          );
+        }
+      }
+
+      void resolveBotTurn();
+    }, delay);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    currentTurnPlayer?.id,
+    currentTurnPlayer?.isBot,
+    gameState?.gameId,
+    gameState?.pendingAction?.id,
+    gameState?.status,
+    gameState?.turn?.number,
+    refresh,
+  ]);
 
   const selectActivePlayer = useCallback(
     (playerId: PlayerId) => {
@@ -729,6 +805,13 @@ export default function PlayPage({ params }: PlayPageProps) {
                     <p className="mt-1 truncate text-sm font-bold text-slate-950">
                       {currentTurnPlayer?.name ?? 'очікується'}
                     </p>
+                    {currentTurnPlayer?.isBot ? (
+                      <p className="mt-2 truncate text-xs font-semibold text-amber-700">
+                        {thinkingBotPlayerId === currentTurnPlayer.id
+                          ? 'Бот думає...'
+                          : 'Автохід бота'}
+                      </p>
+                    ) : null}
                     {activePlayer ? (
                       <p className="mt-2 truncate text-xs font-semibold text-emerald-700">
                         Активне сидіння: {activePlayer.name}
@@ -827,6 +910,14 @@ export default function PlayPage({ params }: PlayPageProps) {
                 gameState={gameState}
                 onResolved={refresh}
               />
+
+              {thinkingBotPlayerId || botTurnError ? (
+                <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                  {botTurnError
+                    ? `Помилка ходу бота: ${botTurnError}`
+                    : 'Бот думає над ходом...'}
+                </section>
+              ) : null}
 
               <GameLog
                 className="max-h-[520px]"

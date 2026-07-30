@@ -145,14 +145,14 @@ export default function HomePage() {
   async function handleJoinGame(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const joinCode = String(formData.get('code') ?? '').trim().toUpperCase();
     const currentUser = await readCurrentUserOrOpenAuth();
 
     if (!currentUser) {
       return;
     }
-
-    const formData = new FormData(event.currentTarget);
-    const joinCode = String(formData.get('code') ?? '').trim().toUpperCase();
 
     if (!joinCode) {
       setError('Введіть код гри.');

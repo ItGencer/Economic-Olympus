@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: 'Економічна Монополія',
   description:
     'Онлайн економічна настільна гра з серверною логікою через Supabase.',
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

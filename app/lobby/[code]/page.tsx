@@ -117,6 +117,12 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   );
   const isOwner = Boolean(game && currentUserId === game.created_by_user_id);
   const canJoin = Boolean(game && game.status === 'lobby' && !currentPlayer);
+  const canAddBot = Boolean(
+    game &&
+      game.status === 'lobby' &&
+      isOwner &&
+      players.length < game.max_players,
+  );
   const canStart = Boolean(
     game &&
       game.status === 'lobby' &&
@@ -397,6 +403,58 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     }
   }
 
+  async function handleAddBot() {
+    if (!game || !canAddBot) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: addBotError } = await supabase.rpc('add_bot', {
+        p_game_id: game.id,
+      });
+
+      if (addBotError) {
+        throw addBotError;
+      }
+
+      await loadLobby(game.join_code);
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRemoveBot(playerId: string) {
+    if (!game || !isOwner || game.status !== 'lobby') {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: removeBotError } = await supabase.rpc('remove_bot', {
+        p_player_id: playerId,
+      });
+
+      if (removeBotError) {
+        throw removeBotError;
+      }
+
+      await loadLobby(game.join_code);
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleStartGame() {
     if (!game || !canStart) {
       return;
@@ -531,9 +589,21 @@ export default function LobbyPage({ params }: LobbyPageProps) {
             <div className="mt-6">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-slate-950">Гравці</h2>
-                <span className="text-sm font-semibold text-slate-500">
-                  {players.length}/{game.max_players}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-slate-500">
+                    {players.length}/{game.max_players}
+                  </span>
+                  {isOwner && game.status === 'lobby' ? (
+                    <button
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-emerald-200 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                      disabled={busy || !canAddBot}
+                      onClick={handleAddBot}
+                      type="button"
+                    >
+                      Додати бота
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
@@ -549,13 +619,30 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                         </p>
                         <h3 className="mt-1 text-lg font-bold text-slate-950">
                           {player.display_name}
+                          {player.is_bot ? (
+                            <span className="ml-2 align-middle rounded bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700">
+                              Бот
+                            </span>
+                          ) : null}
                         </h3>
                       </div>
-                      {player.user_id === currentUserId ? (
-                        <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-800">
-                          Ви
-                        </span>
-                      ) : null}
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        {player.user_id === currentUserId ? (
+                          <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-800">
+                            Ви
+                          </span>
+                        ) : null}
+                        {isOwner && game.status === 'lobby' && player.is_bot ? (
+                          <button
+                            className="rounded border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                            disabled={busy}
+                            onClick={() => void handleRemoveBot(player.id)}
+                            type="button"
+                          >
+                            Прибрати
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     <p className="mt-3 text-sm text-slate-600">
                       {player.is_bot ? 'Бот' : 'Гравець'} · стартовий баланс
