@@ -54,8 +54,8 @@
       "label": "Імідж",
       "priceMin": 100,
       "priceMax": 3000,
-      "imageMin": 2,
-      "imageMax": 5
+      "imageMin": 1,
+      "imageMax": 10
     }
   },
   {
@@ -114,8 +114,8 @@
       "label": "Імідж",
       "priceMin": 100,
       "priceMax": 3000,
-      "imageMin": 2,
-      "imageMax": 5
+      "imageMin": 1,
+      "imageMax": 10
     }
   },
   {
@@ -167,8 +167,8 @@
       "corner": "top_left",
       "priceMin": 100,
       "priceMax": 3000,
-      "imageMin": 2,
-      "imageMax": 5
+      "imageMin": 1,
+      "imageMax": 10
     }
   },
   {
@@ -465,8 +465,8 @@
       "label": "Імідж",
       "priceMin": 100,
       "priceMax": 3000,
-      "imageMin": 2,
-      "imageMax": 5
+      "imageMin": 1,
+      "imageMax": 10
     }
   },
   {

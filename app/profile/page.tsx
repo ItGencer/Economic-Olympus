@@ -134,11 +134,15 @@ function getGameHref(game: ProfileGameRow) {
 
 function GameList({
   emptyText,
+  endingGameId,
   games,
+  onEndGame,
   title,
 }: {
   emptyText: string;
+  endingGameId?: string | null;
   games: ProfileGame[];
+  onEndGame?: (game: ProfileGameRow) => void;
   title: string;
 }) {
   return (
@@ -166,12 +170,24 @@ function GameList({
                     {statusLabels[game.status]}
                   </h3>
                 </div>
-                <Link
-                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
-                  href={getGameHref(game)}
-                >
-                  Відкрити
-                </Link>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <Link
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                    href={getGameHref(game)}
+                  >
+                    Відкрити
+                  </Link>
+                  {onEndGame ? (
+                    <button
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-rose-200 px-3 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                      disabled={endingGameId === game.id}
+                      onClick={() => onEndGame(game)}
+                      type="button"
+                    >
+                      {endingGameId === game.id ? 'Завершуємо' : 'Завершити'}
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -231,6 +247,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [games, setGames] = useState<ProfileGame[]>([]);
   const [gamesLoading, setGamesLoading] = useState(false);
+  const [endingGameId, setEndingGameId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -302,6 +319,56 @@ export default function ProfilePage() {
       active = false;
     };
   }, [authLoading, openAuthModal, refreshUser, router, user]);
+
+  async function handleEndGame(game: ProfileGameRow) {
+    if (game.status === 'finished' || endingGameId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Завершити цю гру зараз? Вона перейде в завершені без переможця.',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setEndingGameId(game.id);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: endError } = await supabase.rpc('end_game', {
+        p_game_id: game.id,
+      });
+
+      if (endError) {
+        throw endError;
+      }
+
+      const finishedAt = new Date().toISOString();
+
+      setGames((currentGames) =>
+        currentGames.map((profileGame) =>
+          profileGame.game.id === game.id
+            ? {
+                ...profileGame,
+                game: {
+                  ...profileGame.game,
+                  finished_at: finishedAt,
+                  status: 'finished',
+                  winner_player_id: null,
+                },
+              }
+            : profileGame,
+        ),
+      );
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setEndingGameId(null);
+    }
+  }
 
   const groupedGames = useMemo(
     () => ({
@@ -412,7 +479,9 @@ export default function ProfilePage() {
             <div className="mt-8 grid gap-8 lg:grid-cols-3">
               <GameList
                 emptyText="Активних ігор поки немає."
+                endingGameId={endingGameId}
                 games={groupedGames.active}
+                onEndGame={handleEndGame}
                 title="Активні"
               />
               <GameList

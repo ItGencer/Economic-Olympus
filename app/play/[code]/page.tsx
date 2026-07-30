@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Board from '@/components/Board';
@@ -20,6 +21,107 @@ type PlayPageProps = {
 };
 
 type RpcArgs = Record<string, number | string | null>;
+
+type ImageCardVariant = {
+  alt: string;
+  description: string;
+  imageSrc: string;
+  title: string;
+};
+
+const imageCardVariants: ImageCardVariant[] = [
+  {
+    alt: 'Дошка розслідування',
+    description:
+      'Замовте прозоре розслідування та покажіть партнерам, що ваш бізнес грає чесно.',
+    imageSrc: '/image-cards/Investigation.png',
+    title: 'Розслідування',
+  },
+  {
+    alt: 'Терези правосуддя',
+    description:
+      'Оплатіть юридичну підтримку, щоб захистити репутацію та зміцнити довіру клієнтів.',
+    imageSrc: '/image-cards/Law.jpg',
+    title: 'Юридична підтримка',
+  },
+  {
+    alt: 'Новий стиль зачіски',
+    description:
+      'Оновіть стиль керівника та додайте бренду впізнаваності перед важливими зустрічами.',
+    imageSrc: '/image-cards/New_Style.jpg',
+    title: 'Новий стиль',
+  },
+  {
+    alt: 'Преміальний телефон',
+    description:
+      'Придбайте преміальний телефон для публічних появ та підкресліть статус компанії.',
+    imageSrc: '/image-cards/Phone.png',
+    title: 'Преміальний телефон',
+  },
+  {
+    alt: 'Переїзд компанії',
+    description:
+      'Організуйте переїзд у престижну локацію, щоб бізнес виглядав сильніше для партнерів.',
+    imageSrc: '/image-cards/New_movement.jpg',
+    title: 'Новий переїзд',
+  },
+  {
+    alt: 'Портретна фотосесія',
+    description:
+      'Проведіть фотосесію для медіа та підготуйте професійний образ для ринку.',
+    imageSrc: '/image-cards/Photo.jpg',
+    title: 'Фотосесія',
+  },
+  {
+    alt: 'Мікрофони преси',
+    description:
+      'Зберіть пресконференцію, щоб гучно оголосити про успіхи компанії.',
+    imageSrc: '/image-cards/Press.jpg',
+    title: 'Пресконференція',
+  },
+  {
+    alt: 'Будівля школи',
+    description:
+      'Підтримайте будівництво школи та отримайте сильний соціальний імідж.',
+    imageSrc: '/image-cards/Building_School.jpg',
+    title: 'Будівництво школи',
+  },
+  {
+    alt: 'Онлайн реклама',
+    description:
+      'Запустіть рекламну кампанію, щоб про ваш бренд говорили частіше.',
+    imageSrc: '/image-cards/ADS.png',
+    title: 'Рекламна кампанія',
+  },
+  {
+    alt: 'Консультант за ноутбуком',
+    description:
+      'Оплатіть консультацію експерта та перетворіть поради на впевненість ринку.',
+    imageSrc: '/image-cards/Consultation.jpg',
+    title: 'Консультація експерта',
+  },
+  {
+    alt: 'Діловий костюм',
+    description:
+      'Купіть діловий костюм для перемовин, де перше враження вирішує багато.',
+    imageSrc: '/image-cards/Suit.png',
+    title: 'Діловий костюм',
+  },
+  {
+    alt: 'Компʼютерна допомога',
+    description:
+      'Інвестуйте в IT-допомогу, щоб цифровий образ компанії виглядав надійно.',
+    imageSrc: '/image-cards/Help_OS.jpg',
+    title: 'Допомога IT',
+  },
+  {
+    alt: 'Символ благодійності',
+    description:
+      'Зробіть благодійний внесок і покажіть, що компанія працює не лише заради прибутку.',
+    imageSrc: '/image-cards/Helper.png',
+    title: 'Благодійність',
+  },
+];
 
 const statusLabels: Record<GameState['status'], string> = {
   finished: 'Завершена',
@@ -90,6 +192,43 @@ function readPayloadValue(payload: Record<string, unknown>, key: string) {
   }
 
   return null;
+}
+
+function readPayloadNumber(
+  payload: Record<string, unknown>,
+  key: string,
+  fallback = 0,
+) {
+  const value = payload[key];
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number(value);
+
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return fallback;
+}
+
+function hashString(value: string) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function pickImageCardVariant(seed: string) {
+  return imageCardVariants[hashString(seed) % imageCardVariants.length];
 }
 
 function buildActionDetails(action: PendingAction) {
@@ -239,7 +378,125 @@ function PendingActionPanel({
     );
   }
 
-  const details = buildActionDetails(action);
+  const details = action.type === 'image_offer' ? [] : buildActionDetails(action);
+  const imagePrice = readPayloadNumber(action.payload, 'price');
+  const imageGain = readPayloadNumber(action.payload, 'imageGain');
+  const imageCard =
+    action.type === 'image_offer'
+      ? pickImageCardVariant(action.id || action.cellId || action.createdAt)
+      : null;
+  const canAffordImage = Boolean(
+    activePlayer && activePlayer.balance >= imagePrice,
+  );
+
+  if (action.type === 'image_offer' && imageCard) {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+        <section
+          className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-white/40 bg-cover bg-center p-5 text-white shadow-2xl shadow-fuchsia-950/40 ring-1 ring-white/30"
+          style={{
+            backgroundImage: "url('/image-cards/image-fon.jpg')",
+          }}
+        >
+          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-slate-950/20 via-fuchsia-950/10 to-slate-950/35" />
+          <div className="relative z-10 space-y-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-normal text-fuchsia-100">
+                  Картка іміджу
+                </p>
+                <h2 className="mt-1 text-2xl font-bold tracking-normal text-white">
+                  {imageCard.title}
+                </h2>
+              </div>
+              <span className="shrink-0 rounded bg-white/95 px-2 py-1 text-xs font-bold text-slate-800 shadow-sm">
+                {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+              </span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center">
+              <div className="relative mx-auto aspect-[4/3] w-full max-w-[240px] overflow-hidden rounded-md bg-white/95 shadow-lg shadow-slate-950/25">
+                <Image
+                  alt={imageCard.alt}
+                  className="object-contain p-2"
+                  fill
+                  sizes="240px"
+                  src={imageCard.imageSrc}
+                />
+              </div>
+              <div className="min-w-0 space-y-4">
+                <p className="text-sm font-semibold leading-6 text-fuchsia-50">
+                  {imageCard.description}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                      Вартість
+                    </p>
+                    <p className="mt-1 text-base font-bold">
+                      {formatMoney(imagePrice)}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                      Імідж
+                    </p>
+                    <p className="mt-1 text-base font-bold text-emerald-700">
+                      +{formatInteger(imageGain)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {!canAffordImage ? (
+              <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700 shadow-sm">
+                Недостатньо коштів для цієї картки.
+              </p>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="h-11 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                disabled={!canAct || busy || !canAffordImage}
+                onClick={() =>
+                  runRpc('resolve_image_offer', {
+                    p_decision: 'accept',
+                    p_game_id: gameState.gameId,
+                  })
+                }
+                type="button"
+              >
+                Згоден
+              </button>
+              <button
+                className="h-11 rounded-md border border-white/70 bg-white/95 px-3 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-950/20 transition hover:bg-white disabled:cursor-not-allowed disabled:border-white/30 disabled:bg-white/40 disabled:text-white/70 disabled:shadow-none"
+                disabled={!canAct || busy}
+                onClick={() =>
+                  runRpc('resolve_image_offer', {
+                    p_decision: 'decline',
+                    p_game_id: gameState.gameId,
+                  })
+                }
+                type="button"
+              >
+                Відмовитись
+              </button>
+            </div>
+
+            {error ? (
+              <p
+                aria-live="polite"
+                className="rounded-md bg-white/95 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
+              >
+                {error}
+              </p>
+            ) : null}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">

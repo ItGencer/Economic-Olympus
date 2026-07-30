@@ -130,6 +130,9 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       players.length >= 2 &&
       players.length <= game.max_players,
   );
+  const canEndGame = Boolean(
+    game && currentPlayer && game.status === 'in_progress',
+  );
 
   const loadLobby = useCallback(
     async (targetCode = joinCode) => {
@@ -482,6 +485,40 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     }
   }
 
+  async function handleEndGame() {
+    if (!game || !canEndGame) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Завершити цю гру зараз? Вона перейде в завершені без переможця.',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: endError } = await supabase.rpc('end_game', {
+        p_game_id: game.id,
+      });
+
+      if (endError) {
+        throw endError;
+      }
+
+      await loadLobby(game.join_code);
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleLeaveGame() {
     if (!game || !currentPlayer || game.status !== 'lobby') {
       return;
@@ -714,15 +751,34 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                 onClick={handleStartGame}
                 type="button"
               >
-                {game.status === 'lobby' ? 'Почати гру' : 'Гру почато'}
+                {game.status === 'lobby'
+                  ? 'Почати гру'
+                  : game.status === 'in_progress'
+                    ? 'Гру почато'
+                    : 'Гру завершено'}
               </button>
-              {game.status !== 'lobby' ? (
+              {game.status === 'in_progress' ? (
                 <Link
                   className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
                   href={`/play/${encodeURIComponent(game.join_code)}`}
                 >
                   До гри
                 </Link>
+              ) : null}
+              {game.status === 'in_progress' ? (
+                <button
+                  className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                  disabled={busy || !canEndGame}
+                  onClick={handleEndGame}
+                  type="button"
+                >
+                  Завершити гру
+                </button>
+              ) : null}
+              {game.status === 'finished' ? (
+                <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                  Сеанс завершено.
+                </p>
               ) : null}
               {game.status === 'lobby' ? (
                 <button
