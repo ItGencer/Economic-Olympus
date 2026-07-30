@@ -39,7 +39,7 @@ export function getSupabaseClient(): SupabaseClient {
   return browserClient;
 }
 
-export async function ensureAnonymousSession(): Promise<User> {
+export async function requireAuthenticatedUser(): Promise<User> {
   const supabase = getSupabaseClient();
   const { data: sessionData, error: sessionError } =
     await supabase.auth.getSession();
@@ -52,17 +52,21 @@ export async function ensureAnonymousSession(): Promise<User> {
     return sessionData.session.user;
   }
 
-  const { data, error } = await supabase.auth.signInAnonymously();
+  throw new Error('Потрібно увійти через Google.');
+}
+
+export async function signInWithGoogle(): Promise<void> {
+  const supabase = getSupabaseClient();
+  const redirectTo =
+    typeof window === 'undefined' ? undefined : window.location.href;
+  const { error } = await supabase.auth.signInWithOAuth({
+    options: redirectTo ? { redirectTo } : undefined,
+    provider: 'google',
+  });
 
   if (error) {
     throw error;
   }
-
-  if (!data.user) {
-    throw new Error('Supabase did not return an anonymous user.');
-  }
-
-  return data.user;
 }
 
 export async function signOut(): Promise<void> {

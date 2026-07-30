@@ -2,13 +2,13 @@ create or replace function public.generate_join_code()
 returns text
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_code text;
 begin
   loop
-    v_code := upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 6));
+    v_code := upper(substr(encode(extensions.gen_random_bytes(4), 'hex'), 1, 6));
     exit when not exists (
       select 1
       from public.games

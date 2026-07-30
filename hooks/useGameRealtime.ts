@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ensureAnonymousSession, getSupabaseClient } from '@/lib/supabase';
-import type { GameId, GameState, GameStatus, Player, PlayerId } from '@/types';
+import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
+import type {
+  GameId,
+  GameLogEntry,
+  GameState,
+  GameStatus,
+  Player,
+  PlayerId,
+} from '@/types';
+
+const MAX_LOG_ENTRIES = 80;
 
 type GameRow = {
   created_at: string;
@@ -15,6 +24,17 @@ type GameRow = {
   status: GameStatus;
   updated_at: string;
   winner_player_id: string | null;
+};
+
+type GameLogRow = {
+  created_at: string;
+  event_type: string;
+  game_id: string;
+  id: string;
+  message: string;
+  payload: unknown;
+  player_id: string | null;
+  turn_number: number | null;
 };
 
 type LoadOptions = {
@@ -42,7 +62,9 @@ export type UseGameRealtimeResult = {
   currentTurnPlayer: Player | null;
   error: string | null;
   gameState: GameState | null;
+  isBrowserOnline: boolean;
   isRealtimeConnected: boolean;
+  lastSyncedAt: string | null;
   loading: boolean;
   players: Player[];
   realtimeStatus: GameRealtimeStatus;
@@ -76,6 +98,10 @@ function readErrorMessage(error: unknown) {
 
 function normalizeJoinCode(value?: string | null) {
   return value?.trim().toUpperCase() ?? null;
+}
+
+function readBrowserOnline() {
+  return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
 
 function readGameState(value: unknown): GameState | null {
@@ -158,6 +184,35 @@ function readStateFromRow(row: GameRow): GameState {
   };
 }
 
+function readGameLogEntry(row: GameLogRow): GameLogEntry {
+  return {
+    createdAt: row.created_at,
+    eventType: row.event_type,
+    gameId: row.game_id,
+    id: row.id,
+    message: row.message,
+    payload: isRecord(row.payload) ? row.payload : {},
+    playerId: readNullableString(row.player_id) ?? undefined,
+    turnNumber: typeof row.turn_number === 'number' ? row.turn_number : undefined,
+  };
+}
+
+function readLogTimestamp(entry: GameLogEntry) {
+  const timestamp = Date.parse(entry.createdAt);
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function mergeLogEntry(entries: GameLogEntry[], incoming: GameLogEntry) {
+  if (entries.some((entry) => entry.id === incoming.id)) {
+    return entries;
+  }
+
+  return [...entries, incoming]
+    .sort((left, right) => readLogTimestamp(left) - readLogTimestamp(right))
+    .slice(-MAX_LOG_ENTRIES);
+}
+
 function toRealtimeStatus(status: string): GameRealtimeStatus {
   if (status === 'SUBSCRIBED') {
     return 'subscribed';
@@ -188,6 +243,10 @@ export function useGameRealtime({
   const [currentPlayerId, setCurrentPlayerId] = useState<PlayerId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(initialState);
+  const [isBrowserOnline, setIsBrowserOnline] = useState(readBrowserOnline);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
+    initialState?.updatedAt ?? null,
+  );
   const [loading, setLoading] = useState(Boolean(enabled && !initialState));
   const [realtimeStatus, setRealtimeStatus] =
     useState<GameRealtimeStatus>('idle');
@@ -203,6 +262,7 @@ export function useGameRealtime({
     }
 
     setGameState(initialState);
+    setLastSyncedAt(new Date().toISOString());
     setResolvedGameId(initialState.gameId);
   }, [initialState]);
 
@@ -227,7 +287,7 @@ export function useGameRealtime({
       setError(null);
 
       try {
-        const user = await ensureAnonymousSession();
+        const user = await requireAuthenticatedUser();
         const supabase = getSupabaseClient();
         let query = supabase
           .from('games')
@@ -253,13 +313,38 @@ export function useGameRealtime({
 
         if (!data) {
           setGameState(null);
+          setLastSyncedAt(new Date().toISOString());
           setResolvedGameId(null);
           return;
         }
 
         const nextState = readStateFromRow(data as GameRow);
+        const { data: logData, error: logError } = await supabase
+          .from('game_log')
+          .select(
+            'id,game_id,turn_number,player_id,event_type,message,payload,created_at',
+          )
+          .eq('game_id', nextState.gameId)
+          .order('created_at', { ascending: false })
+          .limit(MAX_LOG_ENTRIES);
 
-        setGameState(nextState);
+        if (logError) {
+          throw logError;
+        }
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        const log = ((logData ?? []) as GameLogRow[])
+          .map(readGameLogEntry)
+          .reverse();
+
+        setGameState({
+          ...nextState,
+          log,
+        });
+        setLastSyncedAt(new Date().toISOString());
         setResolvedGameId(nextState.gameId);
       } catch (caughtError) {
         if (requestId === requestIdRef.current) {
@@ -278,6 +363,38 @@ export function useGameRealtime({
   useEffect(() => {
     void loadGameState();
   }, [loadGameState]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    function handleOnline() {
+      setIsBrowserOnline(true);
+      void loadGameState({ silent: true });
+    }
+
+    function handleOffline() {
+      setIsBrowserOnline(false);
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void loadGameState({ silent: true });
+      }
+    }
+
+    setIsBrowserOnline(readBrowserOnline());
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [enabled, loadGameState]);
 
   useEffect(() => {
     if (!enabled || !resolvedGameId) {
@@ -299,7 +416,14 @@ export function useGameRealtime({
         (payload) => {
           const nextState = readStateFromRow(payload.new as GameRow);
 
-          setGameState(nextState);
+          setGameState((currentState) => ({
+            ...nextState,
+            log:
+              currentState?.gameId === nextState.gameId
+                ? currentState.log
+                : nextState.log,
+          }));
+          setLastSyncedAt(new Date().toISOString());
         },
       )
       .on(
@@ -314,8 +438,38 @@ export function useGameRealtime({
           void loadGameState({ silent: true });
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          filter: `game_id=eq.${resolvedGameId}`,
+          schema: 'public',
+          table: 'game_log',
+        },
+        (payload) => {
+          const entry = readGameLogEntry(payload.new as GameLogRow);
+
+          setGameState((currentState) => {
+            if (!currentState || currentState.gameId !== resolvedGameId) {
+              return currentState;
+            }
+
+            return {
+              ...currentState,
+              log: mergeLogEntry(currentState.log, entry),
+            };
+          });
+          setLastSyncedAt(new Date().toISOString());
+        },
+      )
       .subscribe((status) => {
-        setRealtimeStatus(toRealtimeStatus(status));
+        const nextStatus = toRealtimeStatus(status);
+
+        setRealtimeStatus(nextStatus);
+
+        if (nextStatus === 'channel_error' || nextStatus === 'timed_out') {
+          void loadGameState({ silent: true });
+        }
       });
 
     setRealtimeStatus('connecting');
@@ -347,7 +501,9 @@ export function useGameRealtime({
     currentTurnPlayer,
     error,
     gameState,
+    isBrowserOnline,
     isRealtimeConnected: realtimeStatus === 'subscribed',
+    lastSyncedAt,
     loading,
     players,
     realtimeStatus,

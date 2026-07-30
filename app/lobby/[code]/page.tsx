@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ensureAnonymousSession, getSupabaseClient } from '@/lib/supabase';
+import AuthButton from '@/components/AuthButton';
+import ConnectionStatus from '@/components/ConnectionStatus';
+import type { GameRealtimeStatus } from '@/hooks/useGameRealtime';
+import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
 
 type GameStatus = 'lobby' | 'in_progress' | 'finished';
 
@@ -44,6 +47,10 @@ function normalizeJoinCode(value: string) {
   return decodeURIComponent(value).trim().toUpperCase();
 }
 
+function readBrowserOnline() {
+  return typeof navigator === 'undefined' ? true : navigator.onLine;
+}
+
 function readErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -65,6 +72,26 @@ function isLobbyRpcResult(value: unknown): value is LobbyRpcResult {
   );
 }
 
+function toRealtimeStatus(status: string): GameRealtimeStatus {
+  if (status === 'SUBSCRIBED') {
+    return 'subscribed';
+  }
+
+  if (status === 'CHANNEL_ERROR') {
+    return 'channel_error';
+  }
+
+  if (status === 'TIMED_OUT') {
+    return 'timed_out';
+  }
+
+  if (status === 'CLOSED') {
+    return 'closed';
+  }
+
+  return 'connecting';
+}
+
 export default function LobbyPage({ params }: LobbyPageProps) {
   const router = useRouter();
   const joinCode = useMemo(() => normalizeJoinCode(params.code), [params.code]);
@@ -78,6 +105,11 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isBrowserOnline, setIsBrowserOnline] = useState(readBrowserOnline);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] =
+    useState<GameRealtimeStatus>('idle');
+  const [refreshing, setRefreshing] = useState(false);
 
   const currentPlayer = useMemo(
     () => players.find((player) => player.user_id === currentUserId) ?? null,
@@ -115,6 +147,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       if (!gameData) {
         setGame(null);
         setPlayers([]);
+        setLastSyncedAt(new Date().toISOString());
         return;
       }
 
@@ -131,9 +164,27 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
       setGame(nextGame);
       setPlayers((playersData ?? []) as PlayerRow[]);
+      setLastSyncedAt(new Date().toISOString());
     },
     [joinCode],
   );
+
+  const refreshLobby = useCallback(async () => {
+    if (isCreateRoute) {
+      return;
+    }
+
+    setRefreshing(true);
+    setError(null);
+
+    try {
+      await loadLobby();
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isCreateRoute, loadLobby]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +207,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       setError(null);
 
       try {
-        await ensureAnonymousSession();
+        await requireAuthenticatedUser();
         const supabase = getSupabaseClient();
         const { data, error: createError } = await supabase.rpc('create_game', {
           p_display_name: displayName,
@@ -203,7 +254,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       setError(null);
 
       try {
-        const user = await ensureAnonymousSession();
+        const user = await requireAuthenticatedUser();
 
         if (!cancelled) {
           setCurrentUserId(user.id);
@@ -230,6 +281,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   useEffect(() => {
     if (!game?.id) {
+      setRealtimeStatus('idle');
       return;
     }
 
@@ -260,12 +312,54 @@ export default function LobbyPage({ params }: LobbyPageProps) {
           void loadLobby(game.join_code);
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        const nextStatus = toRealtimeStatus(status);
+
+        setRealtimeStatus(nextStatus);
+
+        if (nextStatus === 'channel_error' || nextStatus === 'timed_out') {
+          void refreshLobby();
+        }
+      });
+
+    setRealtimeStatus('connecting');
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [game?.id, game?.join_code, loadLobby]);
+  }, [game?.id, game?.join_code, loadLobby, refreshLobby]);
+
+  useEffect(() => {
+    if (isCreateRoute) {
+      return;
+    }
+
+    function handleOnline() {
+      setIsBrowserOnline(true);
+      void refreshLobby();
+    }
+
+    function handleOffline() {
+      setIsBrowserOnline(false);
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void refreshLobby();
+      }
+    }
+
+    setIsBrowserOnline(readBrowserOnline());
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isCreateRoute, refreshLobby]);
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -278,7 +372,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const user = await ensureAnonymousSession();
+      const user = await requireAuthenticatedUser();
       setCurrentUserId(user.id);
 
       const supabase = getSupabaseClient();
@@ -322,6 +416,33 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       }
 
       await loadLobby(game.join_code);
+      router.push(`/play/${encodeURIComponent(game.join_code)}`);
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLeaveGame() {
+    if (!game || !currentPlayer || game.status !== 'lobby') {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: leaveError } = await supabase.rpc('leave_game', {
+        p_game_id: game.id,
+      });
+
+      if (leaveError) {
+        throw leaveError;
+      }
+
+      router.replace('/');
     } catch (caughtError) {
       setError(readErrorMessage(caughtError));
     } finally {
@@ -347,6 +468,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
               Почати гру
             </Link>
           </nav>
+          <AuthButton />
         </div>
       </header>
 
@@ -447,6 +569,14 @@ export default function LobbyPage({ params }: LobbyPageProps) {
         </section>
 
         <aside className="space-y-4">
+          <ConnectionStatus
+            isOnline={isBrowserOnline}
+            lastSyncedAt={lastSyncedAt}
+            onRefresh={refreshLobby}
+            realtimeStatus={game ? realtimeStatus : undefined}
+            refreshing={refreshing}
+          />
+
           <section className="rounded-md border border-slate-200 bg-white p-5">
             <h2 className="text-lg font-bold text-slate-950">Код запрошення</h2>
             <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center text-2xl font-bold tracking-normal">
@@ -499,6 +629,24 @@ export default function LobbyPage({ params }: LobbyPageProps) {
               >
                 {game.status === 'lobby' ? 'Почати гру' : 'Гру почато'}
               </button>
+              {game.status !== 'lobby' ? (
+                <Link
+                  className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  href={`/play/${encodeURIComponent(game.join_code)}`}
+                >
+                  До гри
+                </Link>
+              ) : null}
+              {game.status === 'lobby' ? (
+                <button
+                  className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                  disabled={busy}
+                  onClick={handleLeaveGame}
+                  type="button"
+                >
+                  Вийти з лобі
+                </button>
+              ) : null}
               {!isOwner ? (
                 <p className="mt-3 text-xs font-medium text-slate-500">
                   Почати гру може тільки власник сесії.
