@@ -21,6 +21,8 @@ type PlayPageProps = {
 };
 
 type RpcArgs = Record<string, number | string | null>;
+type CasinoParity = 'even' | 'odd';
+type CasinoStep = 'intro' | 'bet';
 
 type ImageCardVariant = {
   alt: string;
@@ -168,6 +170,10 @@ function formatInteger(value: number) {
   return integerFormatter.format(value);
 }
 
+function formatCasinoParity(value: CasinoParity) {
+  return value === 'even' ? 'Парне' : 'Непарне';
+}
+
 function readErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -214,6 +220,38 @@ function readPayloadNumber(
   }
 
   return fallback;
+}
+
+function readPayloadString(
+  payload: Record<string, unknown>,
+  key: string,
+  fallback = '',
+) {
+  const value = payload[key];
+
+  return typeof value === 'string' ? value : fallback;
+}
+
+function readPayloadBoolean(
+  payload: Record<string, unknown>,
+  key: string,
+  fallback = false,
+) {
+  const value = payload[key];
+
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function readPayloadNumberArray(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (item): item is number => typeof item === 'number' && Number.isFinite(item),
+  );
 }
 
 function hashString(value: string) {
@@ -324,6 +362,9 @@ function PendingActionPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [casinoBetInput, setCasinoBetInput] = useState('100');
+  const [casinoParity, setCasinoParity] = useState<CasinoParity>('even');
+  const [casinoStep, setCasinoStep] = useState<CasinoStep>('intro');
   const [shareCount, setShareCount] = useState(1);
   const [stockToSell, setStockToSell] = useState(1);
 
@@ -363,6 +404,21 @@ function PendingActionPanel({
     [onResolved],
   );
 
+  useEffect(() => {
+    setCasinoStep('intro');
+    setCasinoParity('even');
+    setError(null);
+
+    if (action?.type === 'casino_bet') {
+      const nextStake = Math.max(
+        0,
+        Math.min(100, Math.floor(activePlayer?.balance ?? 0)),
+      );
+
+      setCasinoBetInput(String(nextStake));
+    }
+  }, [action?.id, action?.type, activePlayer?.balance]);
+
   if (!action) {
     return (
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
@@ -388,6 +444,375 @@ function PendingActionPanel({
   const canAffordImage = Boolean(
     activePlayer && activePlayer.balance >= imagePrice,
   );
+  const casinoBalance = Math.max(0, Math.floor(activePlayer?.balance ?? 0));
+  const casinoMaxStake = Math.max(
+    0,
+    Math.min(
+      casinoBalance,
+      readPayloadNumber(action.payload, 'maxStake', casinoBalance),
+    ),
+  );
+  const casinoBetAmount = Number(casinoBetInput);
+  const isCasinoBetValid =
+    Number.isInteger(casinoBetAmount) &&
+    casinoBetAmount >= 1 &&
+    casinoBetAmount <= casinoMaxStake;
+  const canSubmitCasinoBet = Boolean(canAct && !busy && isCasinoBetValid);
+  const casinoPhase = readPayloadString(action.payload, 'phase', 'initial');
+  const casinoDice = readPayloadNumberArray(action.payload, 'dice');
+  const casinoTotal = readPayloadNumber(action.payload, 'total');
+  const casinoStoredBet = readPayloadNumber(
+    action.payload,
+    'betAmount',
+    casinoBetAmount,
+  );
+  const casinoStoredParity = readPayloadString(
+    action.payload,
+    'parity',
+    casinoParity,
+  ) as CasinoParity;
+  const casinoWon = readPayloadBoolean(action.payload, 'won');
+  const casinoMultiplier = readPayloadNumber(action.payload, 'multiplier');
+  const casinoPayout = readPayloadNumber(action.payload, 'payout');
+  const casinoHasDice = casinoDice.length === 2;
+  const casinoHasMultiplier = casinoMultiplier > 0;
+  const casinoCanLaunchMultiplier =
+    casinoPhase === 'dice_rolled' && casinoWon && !casinoHasMultiplier;
+  const casinoCanCollect =
+    (casinoPhase === 'dice_rolled' && !casinoWon) ||
+    casinoPhase === 'multiplier_ready';
+
+  if (action.type === 'casino_bet') {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[620px] overflow-y-auto rounded-md border border-amber-100/70 bg-slate-950 text-white shadow-2xl shadow-amber-950/40 ring-1 ring-white/25">
+          <div className="absolute inset-0">
+            <Image
+              alt="Казино"
+              className="object-cover"
+              fill
+              priority
+              sizes="620px"
+              src="/casino-cards/casino.jpg"
+            />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/20 to-slate-950/85" />
+          <div className="relative z-10 flex min-h-[620px] flex-col justify-between p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-md bg-slate-950/55 px-3 py-2 shadow-lg shadow-slate-950/25 backdrop-blur-sm">
+                <p className="text-xs font-semibold uppercase tracking-normal text-amber-200">
+                  Картка казино
+                </p>
+                <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
+                  Казино
+                </h2>
+              </div>
+              <span className="shrink-0 rounded bg-white/95 px-2 py-1 text-xs font-bold text-slate-800 shadow-sm">
+                {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+              </span>
+            </div>
+
+            <div className="rounded-md border border-white/20 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/35 backdrop-blur-sm">
+              {casinoStep === 'intro' && casinoPhase === 'initial' ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-bold tracking-normal text-white">
+                      Зіграти на парне чи непарне?
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      Ви можете відмовитись і передати хід далі або прийняти
+                      гру, зробити ставку та обрати результат суми двох кубиків.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Баланс
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {formatMoney(casinoBalance)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Множник
+                      </p>
+                      <p className="mt-1 text-base font-bold text-amber-700">
+                        x2-x10
+                      </p>
+                    </div>
+                  </div>
+                  {casinoMaxStake < 1 ? (
+                    <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
+                      Недостатньо коштів для ставки.
+                    </p>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className="h-11 rounded-md bg-amber-500 px-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-950/20 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      disabled={!canAct || busy || casinoMaxStake < 1}
+                      onClick={() => setCasinoStep('bet')}
+                      type="button"
+                    >
+                      Погодитись
+                    </button>
+                    <button
+                      className="h-11 rounded-md border border-white/70 bg-white/95 px-3 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-950/20 transition hover:bg-white disabled:cursor-not-allowed disabled:border-white/30 disabled:bg-white/40 disabled:text-white/70"
+                      disabled={!canAct || busy}
+                      onClick={() =>
+                        runRpc('resolve_casino_bet', {
+                          p_bet_amount: null,
+                          p_decision: 'decline',
+                          p_game_id: gameState.gameId,
+                          p_parity: null,
+                        })
+                      }
+                      type="button"
+                    >
+                      Відмова
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {casinoStep === 'bet' && casinoPhase === 'initial' ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-bold tracking-normal text-white">
+                      Ставка та прогноз
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      Оберіть суму до {formatMoney(casinoMaxStake)} і вгадайте,
+                      парною чи непарною буде сума двох кубиків.
+                    </p>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-normal text-amber-200">
+                      Сума ставки
+                    </span>
+                    <input
+                      className="mt-2 h-11 w-full rounded-md border border-white/30 bg-white/95 px-3 text-sm font-bold text-slate-950 outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-200/40"
+                      inputMode="numeric"
+                      max={casinoMaxStake}
+                      min={1}
+                      onChange={(event) => setCasinoBetInput(event.target.value)}
+                      type="number"
+                      value={casinoBetInput}
+                    />
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['even', 'odd'] as CasinoParity[]).map((parity) => (
+                      <button
+                        aria-pressed={casinoParity === parity}
+                        className={joinClassNames(
+                          'h-11 rounded-md border px-3 text-sm font-bold transition',
+                          casinoParity === parity
+                            ? 'border-amber-300 bg-amber-400 text-slate-950 shadow-lg shadow-amber-950/20'
+                            : 'border-white/40 bg-white/15 text-white hover:bg-white/25',
+                        )}
+                        disabled={!canAct || busy}
+                        key={parity}
+                        onClick={() => setCasinoParity(parity)}
+                        type="button"
+                      >
+                        {formatCasinoParity(parity)}
+                      </button>
+                    ))}
+                  </div>
+
+                  {!isCasinoBetValid ? (
+                    <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
+                      Ставка має бути від 1 до {formatMoney(casinoMaxStake)}.
+                    </p>
+                  ) : null}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className="h-11 rounded-md bg-amber-500 px-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-950/20 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      disabled={!canSubmitCasinoBet}
+                      onClick={() =>
+                        runRpc('resolve_casino_bet', {
+                          p_bet_amount: casinoBetAmount,
+                          p_decision: 'roll',
+                          p_game_id: gameState.gameId,
+                          p_parity: casinoParity,
+                        })
+                      }
+                      type="button"
+                    >
+                      {busy ? 'Кидаємо...' : 'Кинути кубики'}
+                    </button>
+                    <button
+                      className="h-11 rounded-md border border-white/70 bg-white/95 px-3 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-950/20 transition hover:bg-white disabled:cursor-not-allowed disabled:border-white/30 disabled:bg-white/40 disabled:text-white/70"
+                      disabled={!canAct || busy}
+                      onClick={() =>
+                        runRpc('resolve_casino_bet', {
+                          p_bet_amount: null,
+                          p_decision: 'decline',
+                          p_game_id: gameState.gameId,
+                          p_parity: null,
+                        })
+                      }
+                      type="button"
+                    >
+                      Відмова
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {casinoPhase !== 'initial' ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-bold tracking-normal text-white">
+                      Результат ставки
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
+                      Ставка {formatMoney(casinoStoredBet)} на{' '}
+                      {formatCasinoParity(casinoStoredParity).toLowerCase()}.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Кубики
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {casinoHasDice ? `${casinoDice[0]} + ${casinoDice[1]}` : '? + ?'}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Сума
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {casinoTotal || '?'}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Прогноз
+                      </p>
+                      <p className="mt-1 text-base font-bold text-amber-700">
+                        {formatCasinoParity(casinoStoredParity)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p
+                    className={joinClassNames(
+                      'rounded-md px-3 py-2 text-center text-sm font-bold shadow-sm',
+                      casinoWon
+                        ? 'bg-emerald-50 text-emerald-800'
+                        : 'bg-rose-50 text-rose-800',
+                    )}
+                  >
+                    {casinoWon
+                      ? 'Прогноз збігся. Запустіть коефіцієнт.'
+                      : 'Прогноз не збігся. Банк забирає ставку.'}
+                  </p>
+
+                  {casinoWon ? (
+                    <div className="rounded-md bg-slate-950/70 px-3 py-3">
+                      <p className="text-center text-xs font-bold uppercase tracking-normal text-amber-200">
+                        Коефіцієнт
+                      </p>
+                      <div className="mt-2 grid grid-cols-9 gap-1 text-center text-xs font-black text-slate-950">
+                        {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((multiplier) => (
+                          <span
+                            className={joinClassNames(
+                              'rounded px-1 py-2',
+                              casinoHasMultiplier && casinoMultiplier === multiplier
+                                ? 'bg-emerald-300 ring-2 ring-white'
+                                : busy && casinoCanLaunchMultiplier
+                                  ? 'animate-pulse bg-amber-300'
+                                  : 'bg-white/80',
+                            )}
+                            key={multiplier}
+                          >
+                            x{multiplier}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {casinoHasMultiplier ? (
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                          Випав коефіцієнт
+                        </p>
+                        <p className="mt-1 text-base font-bold text-amber-700">
+                          x{casinoMultiplier}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                          Виграш
+                        </p>
+                        <p className="mt-1 text-base font-bold text-emerald-700">
+                          {formatMoney(casinoPayout)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {casinoCanLaunchMultiplier ? (
+                    <button
+                      className="h-11 w-full rounded-md bg-amber-500 px-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-950/20 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      disabled={!canAct || busy}
+                      onClick={() =>
+                        runRpc('resolve_casino_bet', {
+                          p_bet_amount: null,
+                          p_decision: 'multiplier',
+                          p_game_id: gameState.gameId,
+                          p_parity: null,
+                        })
+                      }
+                      type="button"
+                    >
+                      {busy ? 'Крутимо...' : 'Запустити коефіцієнт'}
+                    </button>
+                  ) : null}
+
+                  {casinoCanCollect ? (
+                    <button
+                      className="h-11 w-full rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      disabled={!canAct || busy}
+                      onClick={() =>
+                        runRpc('resolve_casino_bet', {
+                          p_bet_amount: null,
+                          p_decision: 'collect',
+                          p_game_id: gameState.gameId,
+                          p_parity: null,
+                        })
+                      }
+                      type="button"
+                    >
+                      {casinoWon ? 'Отримати' : 'Погодитись'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {error ? (
+                <p
+                  aria-live="polite"
+                  className="mt-4 rounded-md bg-white/95 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
+                >
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   if (action.type === 'image_offer' && imageCard) {
     return (

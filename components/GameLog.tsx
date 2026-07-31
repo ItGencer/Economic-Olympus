@@ -34,6 +34,9 @@ const eventMetaByType: Record<string, EventMeta> = {
   cell_vacation: { label: 'Відпустка', tone: 'blue' },
   ceo_election_failed: { label: 'CEO', tone: 'rose' },
   ceo_election_won: { label: 'CEO', tone: 'emerald' },
+  casino_declined: { label: 'Казино', tone: 'slate' },
+  casino_lost: { label: 'Казино', tone: 'rose' },
+  casino_won: { label: 'Казино', tone: 'emerald' },
   client_declined: { label: 'Клієнт', tone: 'slate' },
   client_scores_rolled: { label: 'Клієнт', tone: 'blue' },
   client_stock_sold: { label: 'Клієнт', tone: 'emerald' },
@@ -73,18 +76,26 @@ const toneClasses: Record<EventTone, string> = {
 
 const payloadLabels: Record<string, string> = {
   balanceAfter: 'Баланс',
+  balance: 'Баланс',
+  betAmount: 'Ставка',
   cell_id: 'Клітинка',
   cell_type: 'Тип',
   debt_locked: 'Борг',
   decision: 'Вибір',
   die: 'Кубик',
+  dice: 'Кубики',
   income: 'Дохід',
   imageGain: 'Імідж',
+  multiplier: 'Множник',
+  parity: 'Прогноз',
+  payout: 'Виплата',
   price: 'Ціна',
   share_count: 'Акції',
   successful: 'Успіх',
   supportPercent: 'Підтримка',
+  total: 'Сума',
   to_cell_id: 'Куди',
+  won: 'Виграш',
 };
 
 const payloadKeys = Object.keys(payloadLabels);
@@ -121,6 +132,16 @@ function formatTime(value: string) {
 }
 
 function formatPayloadValue(value: unknown) {
+  if (Array.isArray(value)) {
+    const items = value
+      .map((item) =>
+        typeof item === 'number' || typeof item === 'string' ? String(item) : null,
+      )
+      .filter(Boolean);
+
+    return items.length > 0 ? items.join(' + ') : null;
+  }
+
   if (typeof value === 'boolean') {
     return value ? 'Так' : 'Ні';
   }
