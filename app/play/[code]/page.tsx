@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Board from '@/components/Board';
 import AuthButton from '@/components/AuthButton';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import D20Dice from '@/components/D20Dice';
 import Dice from '@/components/Dice';
 import GameLog from '@/components/GameLog';
 import PlayerCard from '@/components/PlayerCard';
@@ -23,6 +24,15 @@ type PlayPageProps = {
 type RpcArgs = Record<string, number | string | null>;
 type CasinoParity = 'even' | 'odd';
 type CasinoStep = 'intro' | 'bet';
+
+const d6PipPositions: Record<number, number[]> = {
+  1: [5],
+  2: [1, 9],
+  3: [1, 5, 9],
+  4: [1, 3, 7, 9],
+  5: [1, 3, 5, 7, 9],
+  6: [1, 3, 4, 6, 7, 9],
+};
 
 type ImageCardVariant = {
   alt: string;
@@ -138,8 +148,9 @@ const pendingActionLabels: Record<PendingAction['type'], string> = {
   client_decision: 'Клієнт',
   client_stock_choice: 'Продаж запасу',
   company_share_purchase: 'Купівля акцій',
-  deal_decision: 'Угода',
+  deal_decision: 'Ділова зустріч',
   image_offer: 'Імідж',
+  negative_reputation: 'Негативна репутація',
   outer_ring_choice: 'Перехід кола',
   tender_purchase: 'Тендер',
 };
@@ -172,6 +183,35 @@ function formatInteger(value: number) {
 
 function formatCasinoParity(value: CasinoParity) {
   return value === 'even' ? 'Парне' : 'Непарне';
+}
+
+function D6Face({ rolling, value }: { rolling?: boolean; value: number | null }) {
+  const activePips = value ? d6PipPositions[value] ?? [] : [];
+
+  return (
+    <div
+      aria-label={value ? `Кубик: ${value}` : 'Кубик не кинуто'}
+      className={joinClassNames(
+        'mx-auto grid h-24 w-24 shrink-0 grid-cols-3 grid-rows-3 gap-1 rounded-md border border-rose-200 bg-white p-4 shadow-2xl shadow-rose-950/30 ring-4 ring-white/35',
+        rolling && 'animate-bounce',
+      )}
+      role="img"
+    >
+      {Array.from({ length: 9 }, (_, index) => {
+        const position = index + 1;
+
+        return (
+          <span
+            className={joinClassNames(
+              'h-4 w-4 self-center justify-self-center rounded-full',
+              activePips.includes(position) ? 'bg-slate-950' : 'bg-transparent',
+            )}
+            key={position}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 function readErrorMessage(error: unknown) {
@@ -272,8 +312,11 @@ function pickImageCardVariant(seed: string) {
 function buildActionDetails(action: PendingAction) {
   const detailKeys = [
     ['cellId', action.cellId ?? null],
+    ['coefficient', readPayloadValue(action.payload, 'coefficient')],
     ['income', readPayloadValue(action.payload, 'income')],
     ['importance', readPayloadValue(action.payload, 'importance')],
+    ['score', readPayloadValue(action.payload, 'score')],
+    ['amount', readPayloadValue(action.payload, 'amount')],
     ['price', readPayloadValue(action.payload, 'price')],
     ['buyout', readPayloadValue(action.payload, 'buyout')],
     ['sharePrice', readPayloadValue(action.payload, 'sharePrice')],
@@ -454,8 +497,9 @@ function PendingActionPanel({
   );
   const casinoBetAmount = Number(casinoBetInput);
   const isCasinoBetValid =
+    casinoMaxStake > 0 &&
     Number.isInteger(casinoBetAmount) &&
-    casinoBetAmount >= 1 &&
+    casinoBetAmount >= 0 &&
     casinoBetAmount <= casinoMaxStake;
   const canSubmitCasinoBet = Boolean(canAct && !busy && isCasinoBetValid);
   const casinoPhase = readPayloadString(action.payload, 'phase', 'initial');
@@ -481,6 +525,409 @@ function PendingActionPanel({
   const casinoCanCollect =
     (casinoPhase === 'dice_rolled' && !casinoWon) ||
     casinoPhase === 'multiplier_ready';
+  const dealPhase = readPayloadString(action.payload, 'phase', 'initial');
+  const dealCoefficient = readPayloadNumber(
+    action.payload,
+    'coefficient',
+    readPayloadNumber(action.payload, 'importance', 0),
+  );
+  const dealUnitValue = readPayloadNumber(action.payload, 'unitValue', 1000);
+  const dealDie = readPayloadNumber(action.payload, 'die');
+  const dealScore = readPayloadNumber(
+    action.payload,
+    'score',
+    dealCoefficient + dealDie,
+  );
+  const dealImage = readPayloadNumber(
+    action.payload,
+    'image',
+    activePlayer?.image ?? 0,
+  );
+  const dealAmount = readPayloadNumber(action.payload, 'amount');
+  const dealSuccessful = readPayloadBoolean(action.payload, 'successful');
+  const dealDifference = readPayloadNumber(
+    action.payload,
+    'difference',
+    dealImage - dealScore,
+  );
+  const reputationPhase = readPayloadString(action.payload, 'phase', 'initial');
+  const reputationDie = readPayloadNumber(action.payload, 'die');
+  const reputationMultiplier = readPayloadNumber(action.payload, 'multiplier');
+  const reputationImageLoss = readPayloadNumber(action.payload, 'imageLoss');
+  const reputationImageBefore = readPayloadNumber(
+    action.payload,
+    'imageBefore',
+    activePlayer?.image ?? 0,
+  );
+  const reputationImageAfter = readPayloadNumber(
+    action.payload,
+    'imageAfter',
+    reputationImageBefore - reputationImageLoss,
+  );
+  const reputationCanStart =
+    reputationPhase === 'initial' || reputationPhase === 'dice_rolled';
+
+  if (action.type === 'negative_reputation') {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-rose-200/70 bg-slate-950 text-white shadow-2xl shadow-rose-950/45 ring-1 ring-white/25">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,63,94,0.35),_transparent_34%),linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(127,29,29,0.9))]" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rose-500 via-red-300 to-slate-700" />
+
+          <div className="relative z-10 space-y-5 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-normal text-rose-200">
+                  Репутаційний удар
+                </p>
+                <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
+                  Негативна репутація
+                </h2>
+              </div>
+              <span className="shrink-0 rounded bg-white/95 px-2 py-1 text-xs font-bold text-slate-800 shadow-sm">
+                {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+              </span>
+            </div>
+
+            <div className="rounded-md border border-white/15 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/35">
+              <div className="grid gap-4 sm:grid-cols-[120px_minmax(0,1fr)] sm:items-center">
+                <D6Face
+                  rolling={busy && reputationPhase === 'initial'}
+                  value={reputationDie || null}
+                />
+
+                <div className="min-w-0 space-y-3">
+                  <p className="text-sm font-semibold leading-6 text-rose-50">
+                    Кидок d6 визначає базовий удар, а коефіцієнт x1-x5 множить
+                    його перед списанням іміджу.
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Імідж
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {formatInteger(reputationImageBefore)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        d6
+                      </p>
+                      <p className="mt-1 text-base font-bold text-rose-700">
+                        {reputationDie || '?'}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Коеф.
+                      </p>
+                      <p className="mt-1 text-base font-bold text-rose-700">
+                        {reputationMultiplier ? `x${reputationMultiplier}` : 'x?'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-md bg-slate-950/70 px-3 py-3">
+                <p className="text-center text-xs font-bold uppercase tracking-normal text-rose-200">
+                  Шкала коефіцієнтів
+                </p>
+                <div className="mt-2 grid grid-cols-5 gap-2 text-center text-sm font-black text-slate-950">
+                  {[1, 2, 3, 4, 5].map((multiplier) => (
+                    <span
+                      className={joinClassNames(
+                        'rounded px-2 py-3 transition',
+                        reputationMultiplier === multiplier
+                          ? 'bg-rose-400 text-white ring-2 ring-white'
+                          : busy && reputationPhase === 'dice_rolled'
+                            ? 'animate-pulse bg-rose-200'
+                            : 'bg-white/85',
+                      )}
+                      key={multiplier}
+                    >
+                      x{multiplier}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {reputationPhase === 'multiplier_ready' ? (
+                <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+                  <div className="rounded-md bg-rose-50 px-3 py-2 text-rose-800 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-normal">
+                      Втрата іміджу
+                    </p>
+                    <p className="mt-1 text-lg font-black">
+                      -{formatInteger(reputationImageLoss)}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                      Після удару
+                    </p>
+                    <p
+                      className={joinClassNames(
+                        'mt-1 text-lg font-black',
+                        reputationImageAfter < 0 ? 'text-rose-700' : 'text-slate-950',
+                      )}
+                    >
+                      {formatInteger(reputationImageAfter)}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-5">
+                {reputationPhase === 'multiplier_ready' ? (
+                  <button
+                    className="h-11 w-full rounded-md bg-rose-600 px-3 text-sm font-semibold text-white shadow-lg shadow-rose-950/25 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled={!canAct || busy}
+                    onClick={() =>
+                      runRpc('resolve_negative_reputation', {
+                        p_decision: 'confirm',
+                        p_game_id: gameState.gameId,
+                      })
+                    }
+                    type="button"
+                  >
+                    Далі
+                  </button>
+                ) : (
+                  <button
+                    className="h-11 w-full rounded-md bg-rose-600 px-3 text-sm font-semibold text-white shadow-lg shadow-rose-950/25 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled={!canAct || busy || !reputationCanStart}
+                    onClick={() =>
+                      runRpc('resolve_negative_reputation', {
+                        p_decision:
+                          reputationPhase === 'initial' ? 'roll' : 'multiplier',
+                        p_game_id: gameState.gameId,
+                      })
+                    }
+                    type="button"
+                  >
+                    {busy ? 'Крутимо...' : 'Старт'}
+                  </button>
+                )}
+              </div>
+
+              {error ? (
+                <p
+                  aria-live="polite"
+                  className="mt-4 rounded-md bg-white/95 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
+                >
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (action.type === 'deal_decision') {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[640px] overflow-y-auto rounded-md border border-white/50 bg-rose-950 text-white shadow-2xl shadow-rose-950/40 ring-1 ring-white/30">
+          <div className="absolute inset-0">
+            <Image
+              alt="Ділова зустріч"
+              className="object-cover"
+              fill
+              priority
+              sizes="640px"
+              src="/deal-cards/deal.jpg"
+            />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-rose-950/10 via-rose-950/25 to-slate-950/85" />
+
+          <div className="relative z-10 flex min-h-[500px] flex-col justify-between p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-md bg-slate-950/55 px-3 py-2 shadow-lg shadow-slate-950/25 backdrop-blur-sm">
+                <p className="text-xs font-semibold uppercase tracking-normal text-rose-100">
+                  Картка зустрічі
+                </p>
+                <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
+                  Ділова зустріч
+                </h2>
+              </div>
+              <span className="shrink-0 rounded bg-white/95 px-2 py-1 text-xs font-bold text-slate-800 shadow-sm">
+                {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+              </span>
+            </div>
+
+            <div className="rounded-md border border-white/25 bg-slate-950/78 p-4 shadow-2xl shadow-slate-950/35 backdrop-blur-sm">
+              {dealPhase === 'initial' ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-bold tracking-normal text-white">
+                      Погодитись на зустріч?
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-rose-50">
+                      Коефіцієнт додається до кидка d20. Якщо сума не перевищує
+                      ваш імідж, зустріч успішна.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Коефіцієнт
+                      </p>
+                      <p className="mt-1 text-base font-bold text-rose-700">
+                        {formatInteger(dealCoefficient)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Імідж
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {formatInteger(dealImage)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Ціна бала
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {formatMoney(dealUnitValue)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <D20Dice rolling={busy && canAct} />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className="h-11 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                      disabled={!canAct || busy}
+                      onClick={() =>
+                        runRpc('resolve_deal', {
+                          p_decision: 'roll',
+                          p_game_id: gameState.gameId,
+                        })
+                      }
+                      type="button"
+                    >
+                      {busy ? 'Кидаємо...' : 'Згода'}
+                    </button>
+                    <button
+                      className="h-11 rounded-md border border-white/70 bg-white/95 px-3 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-950/20 transition hover:bg-white disabled:cursor-not-allowed disabled:border-white/30 disabled:bg-white/40 disabled:text-white/70 disabled:shadow-none"
+                      disabled={!canAct || busy}
+                      onClick={() =>
+                        runRpc('resolve_deal', {
+                          p_decision: 'decline',
+                          p_game_id: gameState.gameId,
+                        })
+                      }
+                      type="button"
+                    >
+                      Відмова
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {dealPhase === 'rolled' ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-bold tracking-normal text-white">
+                      Результат зустрічі
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-rose-50">
+                      Score = коефіцієнт {formatInteger(dealCoefficient)} + d20{' '}
+                      {formatInteger(dealDie)} = {formatInteger(dealScore)}.
+                    </p>
+                  </div>
+
+                  <D20Dice value={dealDie} />
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Імідж
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {formatInteger(dealImage)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Різниця
+                      </p>
+                      <p
+                        className={joinClassNames(
+                          'mt-1 text-base font-bold',
+                          dealDifference >= 0 ? 'text-emerald-700' : 'text-rose-700',
+                        )}
+                      >
+                        {dealDifference > 0 ? '+' : ''}
+                        {formatInteger(dealDifference)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Баланс
+                      </p>
+                      <p
+                        className={joinClassNames(
+                          'mt-1 text-base font-bold',
+                          dealAmount >= 0 ? 'text-emerald-700' : 'text-rose-700',
+                        )}
+                      >
+                        {dealAmount > 0 ? '+' : ''}
+                        {formatMoney(dealAmount)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p
+                    className={joinClassNames(
+                      'rounded-md px-3 py-2 text-center text-sm font-bold shadow-sm',
+                      dealSuccessful
+                        ? 'bg-emerald-50 text-emerald-800'
+                        : 'bg-rose-50 text-rose-800',
+                    )}
+                  >
+                    {dealSuccessful
+                      ? 'Зустріч успішна. Виграш буде додано після підтвердження.'
+                      : 'Зустріч провалена. Сума буде списана після підтвердження.'}
+                  </p>
+
+                  <button
+                    className="h-11 w-full rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled={!canAct || busy}
+                    onClick={() =>
+                      runRpc('resolve_deal', {
+                        p_decision: 'confirm',
+                        p_game_id: gameState.gameId,
+                      })
+                    }
+                    type="button"
+                  >
+                    Підтвердити
+                  </button>
+                </div>
+              ) : null}
+
+              {error ? (
+                <p
+                  aria-live="polite"
+                  className="mt-4 rounded-md bg-white/95 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
+                >
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   if (action.type === 'casino_bet') {
     return (
@@ -542,7 +989,7 @@ function PendingActionPanel({
                       </p>
                     </div>
                   </div>
-                  {casinoMaxStake < 1 ? (
+                  {casinoMaxStake <= 0 ? (
                     <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
                       Недостатньо коштів для ставки.
                     </p>
@@ -550,7 +997,7 @@ function PendingActionPanel({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       className="h-11 rounded-md bg-amber-500 px-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-950/20 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300"
-                      disabled={!canAct || busy || casinoMaxStake < 1}
+                      disabled={!canAct || busy || casinoMaxStake <= 0}
                       onClick={() => setCasinoStep('bet')}
                       type="button"
                     >
@@ -595,7 +1042,7 @@ function PendingActionPanel({
                       className="mt-2 h-11 w-full rounded-md border border-white/30 bg-white/95 px-3 text-sm font-bold text-slate-950 outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-200/40"
                       inputMode="numeric"
                       max={casinoMaxStake}
-                      min={1}
+                      min={0}
                       onChange={(event) => setCasinoBetInput(event.target.value)}
                       type="number"
                       value={casinoBetInput}
@@ -624,7 +1071,7 @@ function PendingActionPanel({
 
                   {!isCasinoBetValid ? (
                     <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
-                      Ставка має бути від 1 до {formatMoney(casinoMaxStake)}.
+                      Ставка має бути від 0 до {formatMoney(casinoMaxStake)}.
                     </p>
                   ) : null}
 
@@ -962,37 +1409,6 @@ function PendingActionPanel({
       ) : null}
 
       <div className="mt-4 space-y-2">
-        {action.type === 'deal_decision' ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              className="h-10 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={!canAct || busy}
-              onClick={() =>
-                runRpc('resolve_deal', {
-                  p_decision: 'accept',
-                  p_game_id: gameState.gameId,
-                })
-              }
-              type="button"
-            >
-              Прийняти
-            </button>
-            <button
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-              disabled={!canAct || busy}
-              onClick={() =>
-                runRpc('resolve_deal', {
-                  p_decision: 'decline',
-                  p_game_id: gameState.gameId,
-                })
-              }
-              type="button"
-            >
-              Відхилити
-            </button>
-          </div>
-        ) : null}
-
         {action.type === 'client_decision' ? (
           <div className="grid grid-cols-2 gap-2">
             <button

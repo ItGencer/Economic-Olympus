@@ -50,10 +50,13 @@ export interface VacationCellParams extends BaseCellParams {
 }
 
 export interface DealCellParams extends BaseCellParams {
-  incomeMin: number;
-  incomeMax: number;
-  importanceMin: number;
-  importanceMax: number;
+  coefficientMin: number;
+  coefficientMax: number;
+  unitValue: number;
+  incomeMin?: number;
+  incomeMax?: number;
+  importanceMin?: number;
+  importanceMax?: number;
 }
 
 export interface ImageCellParams extends BaseCellParams {
@@ -66,7 +69,11 @@ export interface ImageCellParams extends BaseCellParams {
 }
 
 export interface ReputationCellParams extends BaseCellParams {
-  imageDelta: number;
+  dieMax?: number;
+  dieMin?: number;
+  imageDelta?: number;
+  multiplierMax?: number;
+  multiplierMin?: number;
 }
 
 export interface SalaryCellParams extends BaseCellParams {
@@ -230,6 +237,7 @@ export type PendingActionType =
   | 'client_stock_choice'
   | 'tender_purchase'
   | 'company_share_purchase'
+  | 'negative_reputation'
   | 'outer_ring_choice'
   | 'ceo_election';
 

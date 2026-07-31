@@ -147,7 +147,7 @@ export function PlayerCard({
         <StatItem label="Імідж" value={formatInteger(player.image)} />
         <StatItem label="Запас" value={formatInteger(player.inventory)} />
         <StatItem
-          label="Угоди"
+          label="Зустрічі"
           value={`${player.successfulDeals}/${player.successfulDeals + player.failedDeals}`}
         />
       </div>

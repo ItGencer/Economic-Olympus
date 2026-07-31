@@ -39,11 +39,10 @@
     "ring": "inner",
     "type": "deal",
     "params": {
-      "label": "Сделка",
-      "incomeMin": 1000,
-      "incomeMax": 10000,
-      "importanceMin": 2,
-      "importanceMax": 12
+      "label": "Ділова зустріч",
+      "coefficientMin": 5,
+      "coefficientMax": 50,
+      "unitValue": 1000
     }
   },
   {
@@ -64,7 +63,10 @@
     "type": "negative_reputation",
     "params": {
       "label": "Негативна репутація",
-      "imageDelta": -1
+      "dieMin": 1,
+      "dieMax": 6,
+      "multiplierMin": 1,
+      "multiplierMax": 5
     }
   },
   {
@@ -81,11 +83,10 @@
     "ring": "inner",
     "type": "deal",
     "params": {
-      "label": "Сделка",
-      "incomeMin": 1000,
-      "incomeMax": 10000,
-      "importanceMin": 2,
-      "importanceMax": 12
+      "label": "Ділова зустріч",
+      "coefficientMin": 5,
+      "coefficientMax": 50,
+      "unitValue": 1000
     }
   },
   {
@@ -132,11 +133,10 @@
     "ring": "inner",
     "type": "deal",
     "params": {
-      "label": "Сделка",
-      "incomeMin": 1000,
-      "incomeMax": 10000,
-      "importanceMin": 2,
-      "importanceMax": 12
+      "label": "Ділова зустріч",
+      "coefficientMin": 5,
+      "coefficientMax": 50,
+      "unitValue": 1000
     }
   },
   {
@@ -145,7 +145,10 @@
     "type": "negative_reputation",
     "params": {
       "label": "Негативна репутація",
-      "imageDelta": -1
+      "dieMin": 1,
+      "dieMax": 6,
+      "multiplierMin": 1,
+      "multiplierMax": 5
     }
   },
   {
@@ -253,7 +256,10 @@
     "type": "negative_reputation",
     "params": {
       "label": "Негативна репутація",
-      "imageDelta": -1
+      "dieMin": 1,
+      "dieMax": 6,
+      "multiplierMin": 1,
+      "multiplierMax": 5
     }
   },
   {
