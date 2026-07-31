@@ -40,8 +40,13 @@ export interface StartCellParams extends BaseCellParams {}
 export interface CasinoCellParams extends BaseCellParams {}
 
 export interface RandomCellParams extends BaseCellParams {
-  minAmount: number;
-  maxAmount: number;
+  amountStep?: number;
+  maxAmount?: number;
+  minAmount?: number;
+  negativeMax?: number;
+  negativeMin?: number;
+  positiveMax?: number;
+  positiveMin?: number;
   sign?: RandomSign;
 }
 
@@ -232,6 +237,7 @@ export type PendingActionType =
   | 'deal_decision'
   | 'casino_bet'
   | 'image_offer'
+  | 'random_event'
   | 'advertising_offer'
   | 'client_decision'
   | 'client_stock_choice'

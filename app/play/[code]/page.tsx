@@ -41,6 +41,15 @@ type ImageCardVariant = {
   title: string;
 };
 
+type RandomCardVariant = {
+  alt: string;
+  imageSrc: string;
+  key: string;
+  negativeText: string;
+  positiveText: string;
+  title: string;
+};
+
 const imageCardVariants: ImageCardVariant[] = [
   {
     alt: 'Дошка розслідування',
@@ -135,6 +144,113 @@ const imageCardVariants: ImageCardVariant[] = [
   },
 ];
 
+const randomCardVariants: RandomCardVariant[] = [
+  {
+    alt: 'Дошка розслідування',
+    imageSrc: '/image-cards/Investigation.png',
+    key: 'Investigation',
+    negativeText: 'Перевірка знайшла стару помилку в документах.',
+    positiveText: 'Розслідування прибрало ризик і врятувало угоду.',
+    title: 'Розслідування',
+  },
+  {
+    alt: 'Терези правосуддя',
+    imageSrc: '/image-cards/Law.jpg',
+    key: 'Law',
+    negativeText: 'Юридична суперечка потребує термінових витрат.',
+    positiveText: 'Юристи виграли спір і повернули компанії гроші.',
+    title: 'Юридична підтримка',
+  },
+  {
+    alt: 'Новий стиль зачіски',
+    imageSrc: '/image-cards/New_Style.jpg',
+    key: 'New_Style',
+    negativeText: 'Невдалий стиль зіпсував публічну зустріч.',
+    positiveText: 'Оновлений образ дав несподіваний рекламний ефект.',
+    title: 'Новий стиль',
+  },
+  {
+    alt: 'Преміальний телефон',
+    imageSrc: '/image-cards/Phone.png',
+    key: 'Phone',
+    negativeText: 'Преміальний гаджет розбили перед презентацією.',
+    positiveText: 'Корисний дзвінок приніс швидкий контракт.',
+    title: 'Телефон',
+  },
+  {
+    alt: 'Переїзд компанії',
+    imageSrc: '/image-cards/New_movement.jpg',
+    key: 'New_movement',
+    negativeText: 'Переїзд затягнувся і зірвав робочий тиждень.',
+    positiveText: 'Нова локація привела більше клієнтів.',
+    title: 'Переїзд',
+  },
+  {
+    alt: 'Портретна фотосесія',
+    imageSrc: '/image-cards/Photo.jpg',
+    key: 'Photo',
+    negativeText: 'Невдале фото стало приводом для критики.',
+    positiveText: 'Фото потрапило в медіа і принесло увагу.',
+    title: 'Фотосесія',
+  },
+  {
+    alt: 'Мікрофони преси',
+    imageSrc: '/image-cards/Press.jpg',
+    key: 'Press',
+    negativeText: 'Преса перекрутила слова і створила проблему.',
+    positiveText: 'Добра згадка в пресі привела нові гроші.',
+    title: 'Преса',
+  },
+  {
+    alt: 'Будівля школи',
+    imageSrc: '/image-cards/Building_School.jpg',
+    key: 'Building_School',
+    negativeText: 'Будівельний підрядник виставив додатковий рахунок.',
+    positiveText: 'Соціальний проєкт отримав премію від партнерів.',
+    title: 'Будівництво школи',
+  },
+  {
+    alt: 'Онлайн реклама',
+    imageSrc: '/image-cards/ADS.png',
+    key: 'ADS',
+    negativeText: 'Рекламна кампанія злила бюджет без результату.',
+    positiveText: 'Реклама несподівано привела хвилю продажів.',
+    title: 'Реклама',
+  },
+  {
+    alt: 'Консультант за ноутбуком',
+    imageSrc: '/image-cards/Consultation.jpg',
+    key: 'Consultation',
+    negativeText: 'Консультація виявилась дорожчою, ніж планували.',
+    positiveText: 'Порада експерта швидко окупилась.',
+    title: 'Консультація',
+  },
+  {
+    alt: 'Діловий костюм',
+    imageSrc: '/image-cards/Suit.png',
+    key: 'Suit',
+    negativeText: 'Непередбачена покупка костюма вдарила по бюджету.',
+    positiveText: 'Солідний вигляд допоміг домовитись вигідніше.',
+    title: 'Діловий костюм',
+  },
+  {
+    alt: 'Компʼютерна допомога',
+    imageSrc: '/image-cards/Help_OS.jpg',
+    key: 'Help_OS',
+    negativeText: 'Технічний збій зупинив роботу сервісу.',
+    positiveText: 'IT-допомога врятувала важливий запуск.',
+    title: 'IT-допомога',
+  },
+  {
+    alt: 'Символ благодійності',
+    imageSrc: '/image-cards/Helper.png',
+    key: 'Helper',
+    negativeText: 'Благодійний збір потребував додаткових витрат.',
+    positiveText: 'Добра справа принесла несподівану підтримку.',
+    title: 'Благодійність',
+  },
+];
+
 const statusLabels: Record<GameState['status'], string> = {
   finished: 'Завершена',
   in_progress: 'Триває',
@@ -152,6 +268,7 @@ const pendingActionLabels: Record<PendingAction['type'], string> = {
   image_offer: 'Імідж',
   negative_reputation: 'Негативна репутація',
   outer_ring_choice: 'Перехід кола',
+  random_event: 'Random',
   tender_purchase: 'Тендер',
 };
 
@@ -183,6 +300,10 @@ function formatInteger(value: number) {
 
 function formatCasinoParity(value: CasinoParity) {
   return value === 'even' ? 'Парне' : 'Непарне';
+}
+
+function formatRandomSign(value: string) {
+  return value === 'negative' ? 'Негативний випадок' : 'Позитивний випадок';
 }
 
 function D6Face({ rolling, value }: { rolling?: boolean; value: number | null }) {
@@ -307,6 +428,13 @@ function hashString(value: string) {
 
 function pickImageCardVariant(seed: string) {
   return imageCardVariants[hashString(seed) % imageCardVariants.length];
+}
+
+function pickRandomCardVariant(key: string, seed: string) {
+  return (
+    randomCardVariants.find((variant) => variant.key === key) ??
+    randomCardVariants[hashString(seed) % randomCardVariants.length]
+  );
 }
 
 function buildActionDetails(action: PendingAction) {
@@ -484,6 +612,13 @@ function PendingActionPanel({
     action.type === 'image_offer'
       ? pickImageCardVariant(action.id || action.cellId || action.createdAt)
       : null;
+  const randomCard =
+    action.type === 'random_event'
+      ? pickRandomCardVariant(
+          readPayloadString(action.payload, 'variantKey'),
+          action.id || action.cellId || action.createdAt,
+        )
+      : null;
   const canAffordImage = Boolean(
     activePlayer && activePlayer.balance >= imagePrice,
   );
@@ -566,6 +701,138 @@ function PendingActionPanel({
   );
   const reputationCanStart =
     reputationPhase === 'initial' || reputationPhase === 'dice_rolled';
+
+  if (action.type === 'random_event' && randomCard) {
+    const randomSign = readPayloadString(action.payload, 'sign', 'positive');
+    const randomAmount = readPayloadNumber(action.payload, 'amount');
+    const randomBalanceBefore = readPayloadNumber(
+      action.payload,
+      'balanceBefore',
+      activePlayer?.balance ?? 0,
+    );
+    const randomBalanceAfter = randomBalanceBefore + randomAmount;
+    const isPositiveRandom = randomSign !== 'negative';
+
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-lime-100/70 bg-emerald-900 text-white shadow-2xl shadow-emerald-950/40 ring-1 ring-white/25">
+          <div className="absolute inset-0 bg-[linear-gradient(145deg,_#d9f99d_0%,_#86efac_32%,_#22c55e_64%,_#166534_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.38),_transparent_38%),linear-gradient(to_bottom,_rgba(15,23,42,0.05),_rgba(15,23,42,0.46))]" />
+
+          <div className="relative z-10 space-y-5 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 rounded-md bg-emerald-950/45 px-3 py-2 shadow-lg shadow-emerald-950/25 backdrop-blur-sm">
+                <p className="text-xs font-semibold uppercase tracking-normal text-lime-100">
+                  Картка випадку
+                </p>
+                <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
+                  Random
+                </h2>
+              </div>
+              <span
+                className={joinClassNames(
+                  'shrink-0 rounded px-2 py-1 text-xs font-bold shadow-sm',
+                  isPositiveRandom
+                    ? 'bg-white/95 text-emerald-800'
+                    : 'bg-rose-50 text-rose-800',
+                )}
+              >
+                {formatRandomSign(randomSign)}
+              </span>
+            </div>
+
+            <div className="rounded-md border border-white/30 bg-white/90 p-4 text-slate-950 shadow-2xl shadow-emerald-950/25">
+              <div className="relative mx-auto aspect-[4/3] w-full max-w-[360px] overflow-hidden rounded-md bg-emerald-50 shadow-lg shadow-emerald-950/20">
+                <Image
+                  alt={randomCard.alt}
+                  className="object-contain p-2"
+                  fill
+                  priority
+                  sizes="360px"
+                  src={randomCard.imageSrc}
+                />
+              </div>
+
+              <div className="mt-4 text-center">
+                <p className="text-xs font-bold uppercase tracking-normal text-emerald-700">
+                  {randomCard.title}
+                </p>
+                <h3 className="mt-1 text-xl font-bold tracking-normal text-slate-950">
+                  {formatRandomSign(randomSign)}
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                  {isPositiveRandom
+                    ? randomCard.positiveText
+                    : randomCard.negativeText}
+                </p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+                <div
+                  className={joinClassNames(
+                    'rounded-md px-3 py-3 shadow-sm',
+                    isPositiveRandom
+                      ? 'bg-emerald-50 text-emerald-800'
+                      : 'bg-rose-50 text-rose-800',
+                  )}
+                >
+                  <p className="text-[11px] font-bold uppercase tracking-normal">
+                    Сума
+                  </p>
+                  <p className="mt-1 text-lg font-black">
+                    {randomAmount > 0 ? '+' : ''}
+                    {formatMoney(randomAmount)}
+                  </p>
+                </div>
+                <div className="rounded-md bg-slate-50 px-3 py-3 text-slate-950 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                    Баланс після
+                  </p>
+                  <p
+                    className={joinClassNames(
+                      'mt-1 text-lg font-black',
+                      randomBalanceAfter < 0 ? 'text-rose-700' : 'text-slate-950',
+                    )}
+                  >
+                    {formatMoney(randomBalanceAfter)}
+                  </p>
+                </div>
+              </div>
+
+              {randomBalanceAfter < 0 ? (
+                <p className="mt-4 rounded-md bg-rose-50 px-3 py-2 text-center text-xs font-bold text-rose-700">
+                  Після цього випадку борг збільшиться або зʼявиться новий.
+                </p>
+              ) : null}
+
+              <button
+                className="mt-5 h-11 w-full rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={!canAct || busy}
+                onClick={() =>
+                  runRpc('resolve_random_event', {
+                    p_decision: 'confirm',
+                    p_game_id: gameState.gameId,
+                  })
+                }
+                type="button"
+              >
+                Далі
+              </button>
+
+              {error ? (
+                <p
+                  aria-live="polite"
+                  className="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
+                >
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   if (action.type === 'negative_reputation') {
     return (

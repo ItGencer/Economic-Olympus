@@ -26,6 +26,7 @@ const eventMetaByType: Record<string, EventMeta> = {
   cell_director: { label: 'Директор', tone: 'violet' },
   cell_image_pending: { label: 'Імідж', tone: 'blue' },
   cell_negative_reputation_pending: { label: 'Негативна репутація', tone: 'rose' },
+  cell_random_pending: { label: 'Random', tone: 'amber' },
   cell_random: { label: 'Випадок', tone: 'violet' },
   cell_reputation: { label: 'Репутація', tone: 'blue' },
   cell_salary: { label: 'Дохід', tone: 'emerald' },
@@ -60,6 +61,7 @@ const eventMetaByType: Record<string, EventMeta> = {
   outer_ring_choice_pending: { label: 'Зовнішнє коло', tone: 'amber' },
   outer_ring_moved: { label: 'Зовнішнє коло', tone: 'emerald' },
   outer_ring_stayed: { label: 'Зовнішнє коло', tone: 'slate' },
+  random_event_applied: { label: 'Random', tone: 'violet' },
   tender_declined: { label: 'Тендер', tone: 'slate' },
   tender_fee_paid: { label: 'Тендер', tone: 'rose' },
   tender_owner_landed: { label: 'Тендер', tone: 'blue' },
@@ -102,10 +104,12 @@ const payloadLabels: Record<string, string> = {
   share_count: 'Акції',
   successful: 'Успіх',
   supportPercent: 'Підтримка',
+  sign: 'Тип',
   score: 'Score',
   total: 'Сума',
   to_cell_id: 'Куди',
   won: 'Виграш',
+  variantKey: 'Картка',
 };
 
 const payloadKeys = Object.keys(payloadLabels);

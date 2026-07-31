@@ -21,8 +21,11 @@
     "type": "random",
     "params": {
       "label": "Random",
-      "minAmount": 100,
-      "maxAmount": 2000
+      "positiveMin": 100,
+      "positiveMax": 2000,
+      "negativeMin": -5000,
+      "negativeMax": -1000,
+      "amountStep": 100
     }
   },
   {
@@ -95,8 +98,11 @@
     "type": "random",
     "params": {
       "label": "Random",
-      "minAmount": 100,
-      "maxAmount": 2500
+      "positiveMin": 100,
+      "positiveMax": 2000,
+      "negativeMin": -5000,
+      "negativeMax": -1000,
+      "amountStep": 100
     }
   },
   {
@@ -302,8 +308,11 @@
     "type": "random",
     "params": {
       "label": "Random",
-      "minAmount": 500,
-      "maxAmount": 5000
+      "positiveMin": 100,
+      "positiveMax": 2000,
+      "negativeMin": -5000,
+      "negativeMax": -1000,
+      "amountStep": 100
     }
   },
   {
@@ -481,8 +490,11 @@
     "type": "random",
     "params": {
       "label": "Random",
-      "minAmount": 500,
-      "maxAmount": 5000
+      "positiveMin": 100,
+      "positiveMax": 2000,
+      "negativeMin": -5000,
+      "negativeMax": -1000,
+      "amountStep": 100
     }
   },
   {
