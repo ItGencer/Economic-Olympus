@@ -56,6 +56,32 @@ export function isSupabaseConfigured() {
   return getSupabaseConfigStatus().configured;
 }
 
+function normalizeSiteUrl(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function readOAuthRedirectTo() {
+  const configuredSiteUrl = normalizeSiteUrl(
+    readPublicEnvValue(process.env.NEXT_PUBLIC_SITE_URL),
+  );
+
+  if (configuredSiteUrl) {
+    return configuredSiteUrl;
+  }
+
+  return typeof window === 'undefined' ? undefined : window.location.origin;
+}
+
 function readSupabaseEnv() {
   const { configured, supabaseUrl, supabaseAnonKey } =
     getSupabaseConfigStatus();
@@ -103,8 +129,7 @@ export async function requireAuthenticatedUser(): Promise<User> {
 
 export async function signInWithGoogle(): Promise<void> {
   const supabase = getSupabaseClient();
-  const redirectTo =
-    typeof window === 'undefined' ? undefined : window.location.href;
+  const redirectTo = readOAuthRedirectTo();
   const { error } = await supabase.auth.signInWithOAuth({
     options: redirectTo ? { redirectTo } : undefined,
     provider: 'google',
