@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
+import {
+  getSupabaseClient,
+  getSupabaseSetupErrorMessage,
+  isSupabaseConfigured,
+  requireAuthenticatedUser,
+} from '@/lib/supabase';
 import type {
   GameId,
   GameLogEntry,
@@ -278,6 +283,13 @@ export function useGameRealtime({
         return;
       }
 
+      if (!isSupabaseConfigured()) {
+        setError(getSupabaseSetupErrorMessage());
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       if (silent) {
         setRefreshing(true);
       } else {
@@ -399,6 +411,11 @@ export function useGameRealtime({
   useEffect(() => {
     if (!enabled || !resolvedGameId) {
       setRealtimeStatus('idle');
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      setRealtimeStatus('closed');
       return;
     }
 

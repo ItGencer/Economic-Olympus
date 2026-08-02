@@ -7,7 +7,12 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import AuthButton from '@/components/AuthButton';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import type { GameRealtimeStatus } from '@/hooks/useGameRealtime';
-import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
+import {
+  getSupabaseClient,
+  getSupabaseSetupErrorMessage,
+  isSupabaseConfigured,
+  requireAuthenticatedUser,
+} from '@/lib/supabase';
 
 type GameStatus = 'lobby' | 'in_progress' | 'finished';
 
@@ -138,6 +143,10 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     async (targetCode = joinCode) => {
       if (targetCode === 'NEW') {
         return;
+      }
+
+      if (!isSupabaseConfigured()) {
+        throw new Error(getSupabaseSetupErrorMessage());
       }
 
       const supabase = getSupabaseClient();
@@ -291,6 +300,11 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   useEffect(() => {
     if (!game?.id) {
       setRealtimeStatus('idle');
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      setRealtimeStatus('closed');
       return;
     }
 

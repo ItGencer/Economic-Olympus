@@ -13,7 +13,9 @@ import type { User } from '@supabase/supabase-js';
 
 import AuthModal from '@/components/AuthModal';
 import {
+  getSupabaseConfigStatus,
   getSupabaseClient,
+  getSupabaseSetupErrorMessage,
   signInWithGoogle,
   signOut as signOutFromSupabase,
 } from '@/lib/supabase';
@@ -42,7 +44,28 @@ function readErrorMessage(error: unknown) {
   return 'Невідома помилка авторизації';
 }
 
+function SupabaseEnvNotice({ missingKeys }: { missingKeys: string[] }) {
+  if (!missingKeys.length) {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+      <div className="mx-auto max-w-7xl">
+        <span className="font-bold">Supabase не налаштовано.</span>{' '}
+        Додайте у Vercel Environment Variables:{' '}
+        <span className="break-all font-mono font-semibold">
+          {missingKeys.join(', ')}
+        </span>,
+        потім зробіть Redeploy.
+      </div>
+    </div>
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const supabaseConfig = useMemo(() => getSupabaseConfigStatus(), []);
+  const supabaseSetupError = useMemo(() => getSupabaseSetupErrorMessage(), []);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,6 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   const refreshUser = useCallback(async () => {
+    if (!supabaseConfig.configured) {
+      setAuthError(supabaseSetupError);
+      setUser(null);
+      setLoading(false);
+      return null;
+    }
+
     const supabase = getSupabaseClient();
 
     setLoading(true);
@@ -75,9 +105,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [supabaseConfig.configured, supabaseSetupError]);
 
   useEffect(() => {
+    if (!supabaseConfig.configured) {
+      setAuthError(supabaseSetupError);
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     const supabase = getSupabaseClient();
     let mounted = true;
 
@@ -117,12 +154,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabaseConfig.configured, supabaseSetupError]);
 
   const openAuthModal = useCallback(() => {
-    setAuthError(null);
+    setAuthError(supabaseConfig.configured ? null : supabaseSetupError);
     setAuthModalOpen(true);
-  }, []);
+  }, [supabaseConfig.configured, supabaseSetupError]);
 
   const closeAuthModal = useCallback(() => {
     if (!busy) {
@@ -131,6 +168,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [busy]);
 
   const signIn = useCallback(async () => {
+    if (!supabaseConfig.configured) {
+      setAuthError(supabaseSetupError);
+      setAuthModalOpen(true);
+      return;
+    }
+
     setBusy(true);
     setAuthError(null);
 
@@ -140,9 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError(readErrorMessage(error));
       setBusy(false);
     }
-  }, []);
+  }, [supabaseConfig.configured, supabaseSetupError]);
 
   const signOut = useCallback(async () => {
+    if (!supabaseConfig.configured) {
+      setAuthError(null);
+      setUser(null);
+      return;
+    }
+
     setBusy(true);
     setAuthError(null);
 
@@ -155,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [supabaseConfig.configured]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -172,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
+      <SupabaseEnvNotice missingKeys={supabaseConfig.missingKeys} />
       {children}
       <AuthModal
         busy={busy}
