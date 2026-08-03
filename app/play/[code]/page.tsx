@@ -5,12 +5,12 @@ import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Board from '@/components/Board';
-import AuthButton from '@/components/AuthButton';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import D20Dice from '@/components/D20Dice';
 import Dice from '@/components/Dice';
 import GameLog from '@/components/GameLog';
 import PlayerCard from '@/components/PlayerCard';
+import SiteHeader from '@/components/SiteHeader';
 import { useGameRealtime } from '@/hooks/useGameRealtime';
 import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
 import type { GameState, PendingAction, Player, PlayerId } from '@/types';
@@ -2030,25 +2030,12 @@ export default function PlayPage({ params }: PlayPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link className="text-lg font-semibold tracking-normal" href="/">
-            Економічна Монополія
-          </Link>
-          <nav className="flex items-center gap-3 text-sm font-medium text-slate-600">
-            <Link className="transition hover:text-slate-950" href="/rules">
-              Правила
-            </Link>
-            <Link
-              className="rounded-md border border-slate-300 px-3 py-2 transition hover:bg-slate-50"
-              href={`/lobby/${encodeURIComponent(joinCode)}`}
-            >
-              Лобі
-            </Link>
-            <AuthButton />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader
+        extraLinks={[
+          { href: `/lobby/${encodeURIComponent(joinCode)}`, label: 'Лобі' },
+        ]}
+        maxWidth="wide"
+      />
 
       <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6">
         {loading ? (

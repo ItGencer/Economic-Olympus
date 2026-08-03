@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import AuthButton from '@/components/AuthButton';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import SiteHeader from '@/components/SiteHeader';
 import type { GameRealtimeStatus } from '@/hooks/useGameRealtime';
 import {
   getSupabaseClient,
@@ -561,25 +561,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
-          <Link className="text-lg font-semibold tracking-normal" href="/">
-            Економічна Монополія
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
-            <Link className="transition hover:text-slate-950" href="/">
-              Головна
-            </Link>
-            <Link className="transition hover:text-slate-950" href="/rules">
-              Правила гри
-            </Link>
-            <Link className="text-slate-950" href="/lobby/new">
-              Почати гру
-            </Link>
-          </nav>
-          <AuthButton />
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="rounded-md border border-slate-200 bg-white p-6">

@@ -3,9 +3,11 @@ import path from 'node:path';
 
 import type { Metadata } from 'next';
 
+import SiteHeader from '@/components/SiteHeader';
+
 export const metadata: Metadata = {
-  title: 'Правила гри | Економічна Монополія',
-  description: 'Структуровані правила Економічної Монополії з GAME_SPEC.md.',
+  title: 'Правила гри | Economic Olympus',
+  description: 'Структуровані правила Economic Olympus з GAME_SPEC.md.',
 };
 
 type MarkdownBlock =
@@ -307,32 +309,7 @@ export default async function RulesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
-          <a href="/" className="text-lg font-semibold tracking-normal">
-            Економічна Монополія
-          </a>
-
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
-            <a href="/" className="transition hover:text-slate-950">
-              Головна
-            </a>
-            <a href="/rules" className="text-slate-950">
-              Правила гри
-            </a>
-            <a href="/#start" className="transition hover:text-slate-950">
-              Почати гру
-            </a>
-          </nav>
-
-          <a
-            href="/#start"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
-          >
-            До гри
-          </a>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto w-full max-w-7xl px-6 py-10">
         <section className="mb-10 border-b border-slate-200 pb-8">

@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import AuthButton from '@/components/AuthButton';
 import { useAuth } from '@/components/AuthProvider';
+import SiteHeader from '@/components/SiteHeader';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type ProfileGameStatus = 'lobby' | 'in_progress' | 'finished';
@@ -399,24 +399,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4">
-          <Link className="text-lg font-semibold tracking-normal" href="/">
-            Економічна Монополія
-          </Link>
-
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
-            <Link className="transition hover:text-slate-950" href="/">
-              Головна
-            </Link>
-            <Link className="transition hover:text-slate-950" href="/rules">
-              Правила гри
-            </Link>
-          </nav>
-
-          <AuthButton />
-        </div>
-      </header>
+      <SiteHeader />
 
       <main>
         <section className="border-b border-slate-200 bg-white">

@@ -5,9 +5,9 @@ import { AuthProvider } from '@/components/AuthProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Економічна Монополія',
+  title: 'Economic Olympus',
   description:
-    'Онлайн економічна настільна гра з серверною логікою через Supabase.',
+    'Онлайн економічна настільна гра з авторизацією, лобі та серверною логікою через Supabase.',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
