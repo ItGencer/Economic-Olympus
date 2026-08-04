@@ -1,11 +1,28 @@
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  background: #f8fafc;
-  color: #111827;
+  color-scheme: dark;
+  --neo-bg: #12121a;
+  --neo-bg-deep: #0e0e16;
+  --neo-panel: rgba(24, 24, 36, 0.86);
+  --neo-panel-strong: rgba(31, 31, 47, 0.94);
+  --neo-border: rgba(192, 132, 252, 0.24);
+  --neo-border-strong: rgba(192, 132, 252, 0.48);
+  --neo-text: #e5e5f0;
+  --neo-muted: #b8b8ca;
+  --neo-soft: #8d8da3;
+  --neo-primary: #a855f7;
+  --neo-primary-dark: #7c3aed;
+  --neo-secondary: #c084fc;
+  --neo-magenta: #f0abfc;
+  --neo-shadow-dark: rgba(2, 2, 8, 0.52);
+  --neo-shadow-light: rgba(192, 132, 252, 0.12);
+  background: var(--neo-bg);
+  color: var(--neo-text);
 }
 
 * {
@@ -19,11 +36,11 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background: #f8fafc;
-  color: #111827;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Space Grotesk", "Exo 2", Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -36,4 +53,308 @@ textarea {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+@keyframes neo-fade-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes neo-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      10px 10px 26px var(--neo-shadow-dark),
+      -8px -8px 20px var(--neo-shadow-light),
+      0 0 0 rgba(168, 85, 247, 0);
+  }
+
+  50% {
+    box-shadow:
+      12px 12px 30px var(--neo-shadow-dark),
+      -8px -8px 22px var(--neo-shadow-light),
+      0 0 28px rgba(192, 132, 252, 0.35);
+  }
+}
+
+@keyframes neo-number-tick {
+  0% {
+    color: var(--neo-secondary);
+    text-shadow: 0 0 18px rgba(192, 132, 252, 0.45);
+  }
+
+  100% {
+    color: inherit;
+    text-shadow: none;
+  }
+}
+
+@keyframes neo-dice-roll {
+  0% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+
+  28% {
+    transform: rotate(18deg) translateY(-7px) scale(1.05);
+  }
+
+  56% {
+    transform: rotate(-14deg) translateY(4px) scale(0.98);
+  }
+
+  82% {
+    transform: rotate(9deg) translateY(-3px) scale(1.03);
+  }
+
+  100% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+}
+
+.neo-theme {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(168, 85, 247, 0.22), transparent 28rem),
+    radial-gradient(circle at 88% 18%, rgba(192, 132, 252, 0.14), transparent 26rem),
+    linear-gradient(135deg, #12121a 0%, #171426 52%, #0f1018 100%);
+  color: var(--neo-text);
+}
+
+.neo-theme h1,
+.neo-theme h2,
+.neo-theme h3,
+.neo-heading {
+  font-family:
+    Orbitron, "Space Grotesk", "Exo 2", Inter, ui-sans-serif, system-ui,
+    sans-serif;
+  letter-spacing: 0;
+}
+
+.neo-panel,
+.neo-theme .bg-white,
+.neo-theme .bg-slate-50,
+.neo-theme .bg-slate-100 {
+  background:
+    linear-gradient(145deg, rgba(34, 34, 52, 0.92), rgba(17, 17, 27, 0.94)) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-text) !important;
+  box-shadow:
+    12px 12px 30px var(--neo-shadow-dark),
+    -10px -10px 28px var(--neo-shadow-light) !important;
+}
+
+.neo-surface {
+  background:
+    linear-gradient(145deg, rgba(20, 20, 32, 0.96), rgba(13, 13, 22, 0.96));
+  border: 1px solid var(--neo-border);
+  box-shadow:
+    12px 12px 30px var(--neo-shadow-dark),
+    -10px -10px 28px var(--neo-shadow-light);
+}
+
+.neo-chip {
+  background: rgba(168, 85, 247, 0.14);
+  border: 1px solid rgba(192, 132, 252, 0.28);
+  color: var(--neo-secondary);
+}
+
+.neo-panel,
+.neo-theme article,
+.neo-theme form,
+.neo-theme aside {
+  border-radius: 18px;
+}
+
+.neo-theme main {
+  animation: neo-fade-scale 260ms ease both;
+}
+
+.neo-panel-pressed,
+.neo-theme input,
+.neo-theme textarea,
+.neo-theme select {
+  background:
+    linear-gradient(145deg, rgba(10, 10, 18, 0.92), rgba(29, 29, 44, 0.72)) !important;
+  border-color: rgba(192, 132, 252, 0.28) !important;
+  color: var(--neo-text) !important;
+  box-shadow:
+    inset 7px 7px 14px rgba(2, 2, 8, 0.55),
+    inset -7px -7px 14px rgba(192, 132, 252, 0.08) !important;
+}
+
+.neo-theme input::placeholder {
+  color: rgba(229, 229, 240, 0.52);
+}
+
+.neo-theme .text-slate-950,
+.neo-theme .text-slate-900,
+.neo-theme .text-slate-800,
+.neo-theme .text-slate-700 {
+  color: var(--neo-text) !important;
+}
+
+.neo-theme .text-slate-600,
+.neo-theme .text-slate-500,
+.neo-theme .text-slate-400 {
+  color: var(--neo-muted) !important;
+}
+
+.neo-theme .border-slate-200,
+.neo-theme .border-slate-300,
+.neo-theme .border-white\/70,
+.neo-theme .border-white\/50 {
+  border-color: var(--neo-border) !important;
+}
+
+.neo-theme .bg-slate-950,
+.neo-theme .bg-emerald-600,
+.neo-theme .bg-indigo-600 {
+  background:
+    linear-gradient(135deg, var(--neo-primary-dark), var(--neo-primary)) !important;
+  color: #ffffff !important;
+}
+
+.neo-theme .text-emerald-700,
+.neo-theme .text-indigo-700,
+.neo-theme .text-amber-700 {
+  color: var(--neo-secondary) !important;
+}
+
+.neo-button,
+.neo-theme button {
+  transition:
+    transform 240ms ease,
+    border-color 240ms ease,
+    background 240ms ease,
+    box-shadow 240ms ease,
+    color 240ms ease;
+}
+
+.neo-button,
+.neo-theme button[class*="bg-slate-950"],
+.neo-theme button[class*="bg-emerald"],
+.neo-theme button[class*="bg-indigo"] {
+  border: 1px solid rgba(192, 132, 252, 0.46);
+  box-shadow:
+    9px 9px 22px rgba(3, 3, 10, 0.46),
+    -6px -6px 16px rgba(192, 132, 252, 0.12),
+    0 0 18px rgba(168, 85, 247, 0.18) !important;
+}
+
+.neo-button:hover,
+.neo-theme button:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: rgba(240, 171, 252, 0.72) !important;
+  box-shadow:
+    12px 12px 26px rgba(3, 3, 10, 0.5),
+    -7px -7px 18px rgba(192, 132, 252, 0.14),
+    0 0 26px rgba(192, 132, 252, 0.28) !important;
+}
+
+.neo-button:active,
+.neo-theme button:not(:disabled):active {
+  transform: scale(0.97);
+  animation: neo-glow-pulse 280ms ease;
+}
+
+.neo-theme button:disabled {
+  opacity: 0.56;
+  box-shadow: none !important;
+}
+
+.neo-modal-panel,
+.neo-theme [role="dialog"] > div,
+.neo-theme [role="dialog"] > section {
+  animation: neo-fade-scale 240ms ease both;
+}
+
+.neo-hero-title {
+  background: linear-gradient(95deg, #ffffff 0%, #c084fc 48%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 34px rgba(168, 85, 247, 0.24);
+}
+
+.neo-grid-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.neo-grid-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(192, 132, 252, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(192, 132, 252, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent);
+}
+
+.neo-cell {
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.05),
+    6px 6px 14px rgba(2, 2, 8, 0.3),
+    -4px -4px 12px rgba(192, 132, 252, 0.08) !important;
+}
+
+.neo-cell:hover {
+  transform: translateY(-1px);
+  border-color: rgba(240, 171, 252, 0.72) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06),
+    8px 8px 18px rgba(2, 2, 8, 0.34),
+    -5px -5px 14px rgba(192, 132, 252, 0.12),
+    0 0 16px rgba(168, 85, 247, 0.22) !important;
+}
+
+.neo-board-scroll {
+  scrollbar-color: rgba(192, 132, 252, 0.62) rgba(18, 18, 26, 0.72);
+  scrollbar-width: thin;
+}
+
+.neo-board-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.neo-board-scroll::-webkit-scrollbar-track {
+  background: rgba(18, 18, 26, 0.72);
+  border-radius: 999px;
+}
+
+.neo-board-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--neo-primary-dark), var(--neo-secondary));
+  border: 2px solid rgba(18, 18, 26, 0.72);
+  border-radius: 999px;
+}
+
+.neo-number {
+  animation: neo-number-tick 520ms ease;
+  font-variant-numeric: tabular-nums;
+}
+
+.neo-dice-rolling {
+  animation: neo-dice-roll 620ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
 }

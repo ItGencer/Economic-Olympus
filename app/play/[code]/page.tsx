@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import AnimatedNumber from '@/components/AnimatedNumber';
 import Board from '@/components/Board';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import D20Dice from '@/components/D20Dice';
@@ -397,8 +398,8 @@ function D6Face({ rolling, value }: { rolling?: boolean; value: number | null })
     <div
       aria-label={value ? `Кубик: ${value}` : 'Кубик не кинуто'}
       className={joinClassNames(
-        'mx-auto grid h-24 w-24 shrink-0 grid-cols-3 grid-rows-3 gap-1 rounded-md border border-rose-200 bg-white p-4 shadow-2xl shadow-rose-950/30 ring-4 ring-white/35',
-        rolling && 'animate-bounce',
+        'neo-panel-pressed mx-auto grid h-24 w-24 shrink-0 grid-cols-3 grid-rows-3 gap-1 rounded-[18px] border border-rose-300/40 bg-white p-4 shadow-2xl shadow-rose-950/30 ring-4 ring-white/10',
+        rolling && 'neo-dice-rolling',
       )}
       role="img"
     >
@@ -568,10 +569,10 @@ function SeatSwitcher({
           <button
             aria-pressed={isActive}
             className={joinClassNames(
-              'min-w-36 rounded-md border px-3 py-2 text-left transition',
+              'neo-button min-w-36 rounded-[16px] border px-3 py-2 text-left transition',
               isActive
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                ? 'border-violet-300 bg-violet-500/20 text-violet-50 ring-2 ring-violet-400/35'
+                : 'border-violet-300/20 bg-[#181824]/70 text-slate-300 hover:border-fuchsia-300/60 hover:bg-violet-500/10',
             )}
             key={player.id}
             onClick={() => onSelect(player.id)}
@@ -581,11 +582,11 @@ function SeatSwitcher({
               {player.name}
             </span>
             <span className="mt-1 flex flex-wrap gap-1">
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
+              <span className="neo-chip rounded px-1.5 py-0.5 text-[11px] font-bold">
                 Місце {player.seatNumber}
               </span>
               {isTurn ? (
-                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-bold text-blue-700">
+                <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[11px] font-bold text-fuchsia-100 ring-1 ring-violet-300/35">
                   Хід
                 </span>
               ) : null}
@@ -642,7 +643,7 @@ function PrivatePlayerStatsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#070710]/65 px-4 py-6 backdrop-blur-md"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -653,10 +654,10 @@ function PrivatePlayerStatsModal({
       <section
         aria-labelledby="private-player-card-title"
         aria-modal="true"
-        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-md border border-slate-200 bg-white shadow-2xl shadow-slate-950/25"
+        className="neo-panel neo-modal-panel max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[20px] border border-violet-300/30 bg-white shadow-2xl shadow-slate-950/25"
         role="dialog"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-violet-300/20 px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-normal text-emerald-700">
               Приватна статистика
@@ -670,7 +671,7 @@ function PrivatePlayerStatsModal({
           </div>
           <button
             aria-label="Закрити картку гравця"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 text-lg font-bold text-slate-600 transition hover:bg-slate-50"
+            className="neo-button inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-violet-300/30 text-lg font-bold text-slate-300 transition hover:bg-violet-500/10"
             onClick={onClose}
             type="button"
           >
@@ -680,29 +681,35 @@ function PrivatePlayerStatsModal({
 
         <div className="space-y-5 px-5 py-5">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
               <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
                 Баланс
               </p>
-              <p className="mt-1 text-lg font-bold text-slate-950">
-                {formatMoney(player.balance)}
-              </p>
+              <AnimatedNumber
+                className="mt-1 block text-lg font-bold text-slate-950"
+                formatter={formatMoney}
+                value={player.balance}
+              />
             </div>
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
               <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
                 Імідж
               </p>
-              <p className="mt-1 text-lg font-bold text-slate-950">
-                {formatInteger(player.image)}
-              </p>
+              <AnimatedNumber
+                className="mt-1 block text-lg font-bold text-slate-950"
+                formatter={formatInteger}
+                value={player.image}
+              />
             </div>
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
               <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
                 Зустрічі
               </p>
-              <p className="mt-1 text-lg font-bold text-slate-950">
-                {formatInteger(meetingsTotal)}
-              </p>
+              <AnimatedNumber
+                className="mt-1 block text-lg font-bold text-slate-950"
+                formatter={formatInteger}
+                value={meetingsTotal}
+              />
               <p className="mt-1 text-xs font-semibold text-slate-500">
                 {formatInteger(player.successfulDeals)} успішних /{' '}
                 {formatInteger(player.failedDeals)} провалених
@@ -717,7 +724,7 @@ function PrivatePlayerStatsModal({
             <div className="mt-3 grid gap-2">
               {companyRows.map((company) => (
                 <div
-                  className="grid gap-3 rounded-md border border-slate-200 bg-white px-3 py-3 sm:grid-cols-[minmax(0,1fr)_160px_160px]"
+                  className="neo-panel grid gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 sm:grid-cols-[minmax(0,1fr)_160px_160px]"
                   key={company.id}
                 >
                   <div className="min-w-0">
@@ -752,7 +759,7 @@ function PrivatePlayerStatsModal({
           </section>
 
           <section className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
               <h3 className="text-base font-bold tracking-normal text-slate-950">
                 Тендери
               </h3>
@@ -770,7 +777,7 @@ function PrivatePlayerStatsModal({
                 </p>
               )}
             </div>
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
               <h3 className="text-base font-bold tracking-normal text-slate-950">
                 Позиція
               </h3>
@@ -877,12 +884,12 @@ function PendingActionPanel({
 
   if (!action) {
     return (
-      <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="neo-panel rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-bold tracking-normal text-slate-950">
             Дія
           </h2>
-          <span className="rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+          <span className="neo-chip rounded px-2 py-1 text-xs font-bold">
             Немає
           </span>
         </div>
@@ -2455,7 +2462,7 @@ export default function PlayPage({ params }: PlayPageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <div className="min-h-screen text-slate-950">
       <SiteHeader
         extraLinks={[
           { href: `/lobby/${encodeURIComponent(joinCode)}`, label: 'Лобі' },
@@ -2465,7 +2472,7 @@ export default function PlayPage({ params }: PlayPageProps) {
 
       <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6">
         {loading ? (
-          <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="neo-panel rounded-[18px] border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-slate-600">
               Завантажуємо гру...
             </p>
@@ -2473,18 +2480,18 @@ export default function PlayPage({ params }: PlayPageProps) {
         ) : null}
 
         {error ? (
-          <section className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm font-semibold text-rose-800">
+          <section className="rounded-[18px] border border-rose-300/35 bg-rose-500/12 p-5 text-sm font-semibold text-rose-100">
             {error}
           </section>
         ) : null}
 
         {!loading && !gameState ? (
-          <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="neo-panel rounded-[18px] border border-slate-200 bg-white p-6 shadow-sm">
             <h1 className="text-2xl font-bold tracking-normal text-slate-950">
               Гру не знайдено
             </h1>
             <Link
-              className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="neo-button mt-5 inline-flex h-10 items-center justify-center rounded-[16px] bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
               href="/#start"
             >
               На головну
@@ -2494,7 +2501,7 @@ export default function PlayPage({ params }: PlayPageProps) {
 
         {gameState ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+            <section className="neo-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -2507,7 +2514,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                       </h1>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
-                      <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="neo-panel-pressed rounded-[16px] bg-slate-50 px-3 py-2">
                         <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
                           Статус
                         </p>
@@ -2515,7 +2522,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                           {statusLabels[gameState.status]}
                         </p>
                       </div>
-                      <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="neo-panel-pressed rounded-[16px] bg-slate-50 px-3 py-2">
                         <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
                           Гравці
                         </p>
@@ -2523,7 +2530,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                           {players.length}/{gameState.maxPlayers}
                         </p>
                       </div>
-                      <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="neo-panel-pressed rounded-[16px] bg-slate-50 px-3 py-2">
                         <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
                           Realtime
                         </p>
@@ -2542,7 +2549,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                   </div>
 
                   {players.length > 0 ? (
-                    <div className="mt-4 border-t border-slate-200 pt-4">
+                    <div className="mt-4 border-t border-violet-300/20 pt-4">
                       <SeatSwitcher
                         activePlayerId={activePlayer?.id ?? null}
                         browserPlayerId={currentPlayer?.id ?? null}
@@ -2567,13 +2574,13 @@ export default function PlayPage({ params }: PlayPageProps) {
 
             <div className="min-w-0 space-y-4">
               {gameState.status === 'lobby' ? (
-                <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                <section className="rounded-[18px] border border-amber-300/35 bg-amber-500/12 p-4 text-sm font-semibold text-amber-100">
                   Гра ще в лобі. Почати можна зі сторінки лобі.
                 </section>
               ) : null}
 
               {gameState.status === 'finished' ? (
-                <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+                <section className="rounded-[18px] border border-emerald-300/35 bg-emerald-500/12 p-4 text-sm font-semibold text-emerald-100">
                   Переможець:{' '}
                   {players.find((player) => player.id === gameState.winnerPlayerId)
                     ?.name ?? 'очікується'}
@@ -2613,7 +2620,7 @@ export default function PlayPage({ params }: PlayPageProps) {
 
                     {privatePlayer ? (
                       <button
-                        className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
+                        className="neo-button inline-flex min-h-10 items-center justify-center rounded-[16px] bg-slate-950 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
                         onClick={() => setPrivatePlayerCardOpen(true)}
                         type="button"
                       >
@@ -2638,7 +2645,7 @@ export default function PlayPage({ params }: PlayPageProps) {
               />
 
               {activePlayer ? (
-                <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+                <section className="neo-panel rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
@@ -2666,33 +2673,39 @@ export default function PlayPage({ params }: PlayPageProps) {
                     </span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded bg-slate-50 px-2 py-2">
+                    <div className="neo-panel-pressed rounded-[14px] bg-slate-50 px-2 py-2">
                       <p className="text-[11px] font-bold text-slate-500">Баланс</p>
-                      <p className="mt-1 truncate text-sm font-bold text-slate-950">
-                        {formatMoney(activePlayer.balance)}
-                      </p>
+                      <AnimatedNumber
+                        className="mt-1 block truncate text-sm font-bold text-slate-950"
+                        formatter={formatMoney}
+                        value={activePlayer.balance}
+                      />
                     </div>
-                    <div className="rounded bg-slate-50 px-2 py-2">
+                    <div className="neo-panel-pressed rounded-[14px] bg-slate-50 px-2 py-2">
                       <p className="text-[11px] font-bold text-slate-500">Імідж</p>
-                      <p className="mt-1 text-sm font-bold text-slate-950">
-                        {formatInteger(activePlayer.image)}
-                      </p>
+                      <AnimatedNumber
+                        className="mt-1 block text-sm font-bold text-slate-950"
+                        formatter={formatInteger}
+                        value={activePlayer.image}
+                      />
                     </div>
-                    <div className="rounded bg-slate-50 px-2 py-2">
+                    <div className="neo-panel-pressed rounded-[14px] bg-slate-50 px-2 py-2">
                       <p className="text-[11px] font-bold text-slate-500">Запас</p>
-                      <p className="mt-1 text-sm font-bold text-slate-950">
-                        {formatInteger(activePlayer.inventory)}
-                      </p>
+                      <AnimatedNumber
+                        className="mt-1 block text-sm font-bold text-slate-950"
+                        formatter={formatInteger}
+                        value={activePlayer.inventory}
+                      />
                     </div>
                   </div>
                   {!canControlActivePlayer ? (
-                    <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                    <p className="mt-3 rounded-[14px] bg-amber-500/12 px-3 py-2 text-xs font-semibold text-amber-100">
                       Це сидіння відкрите для перегляду.
                     </p>
                   ) : null}
                   {privatePlayer ? (
                     <button
-                      className="mt-3 h-10 w-full rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      className="neo-button mt-3 h-10 w-full rounded-[16px] bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                       onClick={() => setPrivatePlayerCardOpen(true)}
                       type="button"
                     >
@@ -2711,7 +2724,7 @@ export default function PlayPage({ params }: PlayPageProps) {
               />
 
               {thinkingBotPlayerId || botTurnError ? (
-                <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                <section className="rounded-[18px] border border-amber-300/35 bg-amber-500/12 p-4 text-sm font-semibold text-amber-100">
                   {botTurnError
                     ? `Помилка ходу бота: ${botTurnError}`
                     : 'Бот думає над ходом...'}

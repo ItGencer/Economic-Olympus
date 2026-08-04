@@ -72,8 +72,8 @@ function readDisplayName(user: User) {
 function BoardPreview() {
   return (
     <div className="relative mx-auto w-full max-w-[420px]">
-      <div className="absolute -inset-3 rounded-lg bg-emerald-100/50" />
-      <div className="relative rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5">
+      <div className="absolute -inset-4 rounded-[28px] bg-violet-500/20 blur-2xl" />
+      <div className="neo-panel neo-grid-glow relative rounded-[22px] border border-violet-300/25 bg-white p-4 shadow-xl sm:p-5">
         <div className="grid aspect-square grid-cols-9 grid-rows-9 gap-1.5">
           {Array.from({ length: 81 }).map((_, index) => {
             const row = Math.floor(index / 9);
@@ -99,8 +99,8 @@ function BoardPreview() {
               <div
                 className={
                   outer
-                    ? 'rounded-md border border-slate-300 bg-white shadow-sm'
-                    : 'rounded-md border border-emerald-300 bg-emerald-50'
+                    ? 'rounded-md border border-violet-300/45 bg-white/8 shadow-sm'
+                    : 'rounded-md border border-fuchsia-300/55 bg-violet-400/15'
                 }
                 key={index}
               />
@@ -250,17 +250,17 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <div className="min-h-screen text-slate-950">
       <SiteHeader />
 
       <main>
-        <section className="border-b border-slate-200 bg-white">
+        <section className="neo-grid-glow border-b border-violet-300/20 bg-white">
           <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,440px)] lg:items-center lg:py-16">
             <div className="max-w-3xl">
               <p className="mb-4 text-sm font-bold uppercase tracking-normal text-emerald-700">
                 Онлайн з першого ходу
               </p>
-              <h1 className="text-4xl font-black tracking-normal text-slate-950 sm:text-5xl lg:text-6xl">
+              <h1 className="neo-hero-title text-4xl font-black tracking-normal text-slate-950 sm:text-5xl lg:text-6xl">
                 Economic Olympus
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-8 text-slate-700 sm:text-lg">
@@ -277,7 +277,7 @@ export default function HomePage() {
 
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
                 <button
-                  className="inline-flex h-12 items-center justify-center rounded-md bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  className="neo-button inline-flex h-12 items-center justify-center rounded-[18px] bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                   disabled={isBusy}
                   onClick={handleCreateGame}
                   type="button"
@@ -285,7 +285,7 @@ export default function HomePage() {
                   {createButtonLabel}
                 </button>
                 <button
-                  className="inline-flex h-12 items-center justify-center rounded-md border border-slate-300 bg-white px-6 text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-300"
+                  className="neo-button inline-flex h-12 items-center justify-center rounded-[18px] border border-slate-300 bg-white px-6 text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-300"
                   disabled={isBusy}
                   onClick={handleHeroJoinClick}
                   type="button"
@@ -297,7 +297,7 @@ export default function HomePage() {
               <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {facts.map((fact) => (
                   <div
-                    className="rounded-md border border-slate-200 bg-slate-50 p-4"
+                    className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 p-4"
                     key={fact.label}
                   >
                     <dt className="text-xs font-bold uppercase tracking-normal text-slate-500">
@@ -333,7 +333,7 @@ export default function HomePage() {
               <div className="mt-8 grid gap-4 md:grid-cols-3">
                 {pillars.map((pillar) => (
                   <article
-                    className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
+                    className="neo-panel rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm"
                     key={pillar.title}
                   >
                     <h3 className="text-base font-black text-slate-950">
@@ -348,7 +348,7 @@ export default function HomePage() {
             </div>
 
             <form
-              className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
+              className="neo-panel rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm"
               id="join"
               onSubmit={handleJoinGame}
             >
@@ -359,7 +359,7 @@ export default function HomePage() {
                 Код гри
               </label>
               <input
-                className="mt-2 h-12 w-full rounded-md border border-slate-300 px-4 text-base font-bold uppercase outline-none transition placeholder:font-normal placeholder:normal-case focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 h-12 w-full rounded-[16px] border border-slate-300 px-4 text-base font-bold uppercase outline-none transition placeholder:font-normal placeholder:normal-case focus:border-violet-400 focus:ring-4 focus:ring-violet-400/20"
                 id="join-code"
                 name="code"
                 placeholder="ABCD12"
@@ -367,7 +367,7 @@ export default function HomePage() {
                 type="text"
               />
               <button
-                className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-md bg-slate-950 px-6 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="neo-button mt-4 inline-flex h-12 w-full items-center justify-center rounded-[18px] bg-slate-950 px-6 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                 disabled={isBusy}
                 type="submit"
               >

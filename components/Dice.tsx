@@ -75,15 +75,24 @@ function isRollDiceResult(value: unknown): value is RollDiceResult {
   );
 }
 
-function DieFace({ compact, value }: { compact?: boolean; value: number | null }) {
+function DieFace({
+  compact,
+  rolling,
+  value,
+}: {
+  compact?: boolean;
+  rolling?: boolean;
+  value: number | null;
+}) {
   const activePips = value ? pipPositions[value] ?? [] : [];
 
   return (
     <div
       aria-label={value ? `Кубик: ${value}` : 'Кубик не кинуто'}
       className={joinClassNames(
-        'grid shrink-0 grid-cols-3 grid-rows-3 rounded-md border border-slate-300 bg-white shadow-sm',
+        'neo-panel-pressed grid shrink-0 grid-cols-3 grid-rows-3 rounded-[16px] border border-slate-300 bg-white shadow-sm',
         compact ? 'h-14 w-14 gap-0.5 p-2' : 'h-20 w-20 gap-1 p-3',
+        rolling && 'neo-dice-rolling',
       )}
       role="img"
     >
@@ -173,13 +182,13 @@ export function Dice({
     <section
       aria-label="Кидок кубика"
       className={joinClassNames(
-        'rounded-md border border-slate-200 bg-white shadow-sm',
+        'neo-panel rounded-[18px] border border-slate-200 bg-white shadow-sm',
         compact ? 'p-2' : 'p-4',
         className,
       )}
     >
       <div className={joinClassNames('flex items-center', compact ? 'gap-2' : 'gap-4')}>
-        <DieFace compact={compact} value={lastRoll?.die ?? null} />
+        <DieFace compact={compact} rolling={busy} value={lastRoll?.die ?? null} />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -224,7 +233,8 @@ export function Dice({
 
       <button
         className={joinClassNames(
-          'inline-flex w-full items-center justify-center rounded-md bg-slate-950 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300',
+          'inline-flex w-full items-center justify-center rounded-[16px] bg-slate-950 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300',
+          'neo-button',
           compact ? 'mt-2 h-9 px-3 text-xs' : 'mt-4 h-11 px-4 text-sm',
         )}
         disabled={!canRoll}

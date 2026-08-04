@@ -70,12 +70,12 @@ const eventMetaByType: Record<string, EventMeta> = {
 };
 
 const toneClasses: Record<EventTone, string> = {
-  amber: 'border-amber-200 bg-amber-50 text-amber-800',
-  blue: 'border-blue-200 bg-blue-50 text-blue-800',
-  emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  rose: 'border-rose-200 bg-rose-50 text-rose-800',
-  slate: 'border-slate-200 bg-slate-100 text-slate-700',
-  violet: 'border-violet-200 bg-violet-50 text-violet-800',
+  amber: 'border-amber-300/35 bg-amber-400/12 text-amber-100',
+  blue: 'border-cyan-300/35 bg-cyan-400/12 text-cyan-100',
+  emerald: 'border-emerald-300/35 bg-emerald-400/12 text-emerald-100',
+  rose: 'border-rose-300/35 bg-rose-400/12 text-rose-100',
+  slate: 'border-slate-300/25 bg-slate-300/10 text-slate-200',
+  violet: 'border-violet-300/45 bg-violet-500/18 text-fuchsia-100',
 };
 
 const payloadLabels: Record<string, string> = {
@@ -192,7 +192,7 @@ export function GameLog({
     <aside
       aria-label="Історія ходів"
       className={joinClassNames(
-        'flex min-h-0 flex-col rounded-md border border-slate-200 bg-white shadow-sm',
+        'neo-panel flex min-h-0 flex-col rounded-[18px] border border-slate-200 bg-white shadow-sm',
         className,
       )}
     >
@@ -208,7 +208,7 @@ export function GameLog({
       {loading ? (
         <div className="space-y-3 p-4" aria-hidden="true">
           {Array.from({ length: 5 }, (_, index) => (
-            <div className="animate-pulse rounded-md bg-slate-100 p-3" key={index}>
+            <div className="animate-pulse rounded-[16px] bg-violet-500/10 p-3" key={index}>
               <div className="h-3 w-24 rounded bg-slate-200" />
               <div className="mt-3 h-4 w-full rounded bg-slate-200" />
             </div>
@@ -222,7 +222,7 @@ export function GameLog({
             const payloadItems = getPayloadItems(entry.payload);
 
             return (
-              <li className="min-w-0 rounded-md border border-slate-200 p-3" key={entry.id}>
+              <li className="min-w-0 rounded-[16px] border border-violet-300/20 bg-[#12121a]/45 p-3 shadow-[inset_1px_1px_0_rgba(255,255,255,0.04)]" key={entry.id}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={joinClassNames(
@@ -256,7 +256,7 @@ export function GameLog({
                   <div className="mt-3 flex flex-wrap gap-2">
                     {payloadItems.map((item) => (
                       <span
-                        className="max-w-full truncate rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"
+                        className="neo-chip max-w-full truncate rounded border px-2 py-1 text-xs font-semibold"
                         key={item.key}
                         title={`${payloadLabels[item.key]}: ${item.value}`}
                       >

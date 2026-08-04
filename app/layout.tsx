@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AuthProvider } from '@/components/AuthProvider';
+import SiteFooter from '@/components/SiteFooter';
 
 import './globals.css';
 
@@ -21,8 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="uk">
-      <body>
-        <AuthProvider>{children}</AuthProvider>
+      <body className="neo-theme">
+        <AuthProvider>
+          {children}
+          <SiteFooter />
+        </AuthProvider>
       </body>
     </html>
   );

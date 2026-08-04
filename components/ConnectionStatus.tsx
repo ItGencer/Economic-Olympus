@@ -109,7 +109,7 @@ export function ConnectionStatus({
     <section
       aria-label="Стан підключення"
       className={joinClassNames(
-        'rounded-md border bg-white p-4 shadow-sm',
+        'neo-panel rounded-[18px] border bg-white p-4 shadow-sm',
         meta.tone === 'good' && 'border-emerald-200',
         meta.tone === 'warning' && 'border-amber-200',
         meta.tone === 'danger' && 'border-rose-200',
@@ -121,7 +121,7 @@ export function ConnectionStatus({
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={joinClassNames(
-                'h-2.5 w-2.5 rounded-full',
+                'h-2.5 w-2.5 rounded-full shadow-[0_0_14px_currentColor]',
                 !mounted && 'bg-slate-300',
                 mounted && meta.tone === 'good' && 'bg-emerald-500',
                 mounted && meta.tone === 'warning' && 'bg-amber-500',
@@ -139,7 +139,7 @@ export function ConnectionStatus({
 
         {onRefresh ? (
           <button
-            className="h-9 shrink-0 rounded-md border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            className="neo-button h-9 shrink-0 rounded-[14px] border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
             disabled={refreshing}
             onClick={() => void onRefresh()}
             type="button"

@@ -25,21 +25,21 @@ type CellPosition = {
 const configuredCells = boardConfig as Cell[];
 
 const typeStyles: Record<CellType, string> = {
-  advertising: 'border-amber-300 bg-amber-50 text-amber-950',
-  casino: 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-950',
-  client: 'border-cyan-300 bg-cyan-50 text-cyan-950',
-  company: 'border-indigo-300 bg-indigo-50 text-indigo-950',
-  deal: 'border-emerald-300 bg-emerald-50 text-emerald-950',
-  director: 'border-slate-400 bg-slate-100 text-slate-950',
-  image: 'border-sky-300 bg-sky-50 text-sky-950',
-  negative_reputation: 'border-rose-300 bg-rose-50 text-rose-950',
-  positive_reputation: 'border-lime-300 bg-lime-50 text-lime-950',
-  random: 'border-violet-300 bg-violet-50 text-violet-950',
-  salary: 'border-green-300 bg-green-50 text-green-950',
-  start: 'border-slate-950 bg-white text-slate-950',
-  tax: 'border-orange-300 bg-orange-50 text-orange-950',
-  tender: 'border-teal-300 bg-teal-50 text-teal-950',
-  vacation: 'border-blue-300 bg-blue-50 text-blue-950',
+  advertising: 'border-amber-300/70 bg-amber-300/10 text-amber-100',
+  casino: 'border-fuchsia-300/75 bg-fuchsia-400/12 text-fuchsia-100',
+  client: 'border-cyan-300/75 bg-cyan-400/10 text-cyan-100',
+  company: 'border-indigo-300/75 bg-indigo-400/12 text-indigo-100',
+  deal: 'border-emerald-300/75 bg-emerald-400/10 text-emerald-100',
+  director: 'border-slate-300/70 bg-slate-300/10 text-slate-100',
+  image: 'border-sky-300/75 bg-sky-400/10 text-sky-100',
+  negative_reputation: 'border-rose-300/75 bg-rose-400/12 text-rose-100',
+  positive_reputation: 'border-lime-300/75 bg-lime-400/10 text-lime-100',
+  random: 'border-violet-300/80 bg-violet-400/14 text-violet-100',
+  salary: 'border-green-300/75 bg-green-400/10 text-green-100',
+  start: 'border-violet-100/80 bg-white/8 text-slate-100',
+  tax: 'border-orange-300/75 bg-orange-400/10 text-orange-100',
+  tender: 'border-teal-300/75 bg-teal-400/10 text-teal-100',
+  vacation: 'border-blue-300/75 bg-blue-400/10 text-blue-100',
 };
 
 const defaultPlayerColors = [
@@ -108,10 +108,10 @@ function CellTile({
   return (
     <div
       className={joinClassNames(
-        'relative flex min-h-0 min-w-0 flex-col justify-between rounded-md border p-1.5 shadow-sm transition',
-        'focus-within:ring-2 focus-within:ring-emerald-500',
+        'neo-cell relative flex min-h-0 min-w-0 flex-col justify-between rounded-md border p-1.5 shadow-sm transition duration-300',
+        'focus-within:ring-2 focus-within:ring-violet-400',
         typeStyles[cell.type],
-        isActive && 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-slate-50',
+        isActive && 'ring-2 ring-violet-300 ring-offset-2 ring-offset-[#12121a]',
       )}
       style={{
         gridColumn: position.col,
@@ -128,7 +128,7 @@ function CellTile({
           {players.slice(0, 4).map((player, index) => (
             <span
               aria-label={player.name}
-              className="h-2.5 w-2.5 rounded-full border border-white shadow-sm"
+              className="h-2.5 w-2.5 rounded-full border border-violet-100 shadow-[0_0_12px_rgba(192,132,252,0.65)]"
               key={player.id}
               style={{
                 backgroundColor:
@@ -172,12 +172,12 @@ export function Board({
     <section
       aria-label="Ігрова дошка"
       className={joinClassNames(
-        'w-full max-w-5xl overflow-x-auto overscroll-x-contain pb-2',
+        'neo-board-scroll w-full max-w-5xl overflow-auto overscroll-contain pb-2 max-h-[calc(100vh-7rem)] xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)]',
         className,
       )}
     >
       <div
-        className="grid aspect-square w-full gap-1.5 rounded-md border border-slate-200 bg-slate-100 p-2 shadow-sm max-[768px]:min-w-[760px] sm:p-3"
+        className="neo-panel neo-grid-glow grid aspect-square w-full gap-1.5 rounded-[20px] border border-violet-300/25 bg-[#151522] p-2 shadow-sm max-[768px]:min-w-[760px] sm:p-3"
         style={{
           gridTemplateColumns: `repeat(${gridSideLength}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${gridSideLength}, minmax(0, 1fr))`,
@@ -204,7 +204,7 @@ export function Board({
         ))}
 
         <div
-          className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-white p-2 text-center lg:p-3"
+          className="neo-panel-pressed flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded-[18px] border border-dashed border-violet-300/30 bg-[#12121a]/80 p-2 text-center lg:p-3"
           style={{
             gridColumn: `${centerStart} / ${centerEnd}`,
             gridRow: `${centerStart} / ${centerEnd}`,

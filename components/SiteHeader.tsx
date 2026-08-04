@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -94,18 +95,28 @@ export function SiteHeader({
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-violet-300/20 bg-[#12121a]/85 shadow-[0_10px_30px_rgba(3,3,10,0.32)] backdrop-blur-xl">
       <div
         className={`mx-auto flex w-full ${containerClass} items-center justify-between gap-3 px-4 py-3 sm:px-6`}
       >
         <Link
-          className="min-w-0 text-base font-bold tracking-normal text-slate-950 sm:text-lg"
+          className="neo-heading flex min-w-0 items-center gap-2 text-base font-bold tracking-normal text-violet-50 transition hover:text-fuchsia-200 sm:text-lg"
           href="/"
         >
-          Economic Olympus
+          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-amber-300/55 bg-white shadow-[0_0_18px_rgba(192,132,252,0.32)]">
+            <Image
+              alt=""
+              className="h-full w-full object-cover"
+              height={36}
+              priority
+              src="/economic_olympus_logo.png"
+              width={36}
+            />
+          </span>
+          <span className="truncate">Economic Olympus</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 min-[769px]:flex">
+        <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-300 min-[769px]:flex">
           {links.map((link) => {
             const active = isActiveLink(pathname, link.href);
 
@@ -113,8 +124,8 @@ export function SiteHeader({
               <Link
                 className={
                   active
-                    ? 'text-slate-950'
-                    : 'transition hover:text-slate-950'
+                    ? 'text-violet-100 drop-shadow-[0_0_12px_rgba(192,132,252,0.45)]'
+                    : 'transition hover:text-fuchsia-200'
                 }
                 href={link.href}
                 key={`${link.href}-${link.label}`}
@@ -133,7 +144,7 @@ export function SiteHeader({
           aria-controls="site-mobile-menu"
           aria-expanded={menuOpen}
           aria-label={menuOpen ? 'Закрити меню' : 'Відкрити меню'}
-          className="inline-grid h-10 w-10 place-items-center rounded-md border border-slate-300 bg-white text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 min-[769px]:hidden"
+          className="neo-button inline-grid h-10 w-10 place-items-center rounded-[16px] border border-violet-300/30 bg-[#181824]/85 text-violet-50 shadow-sm transition hover:border-fuchsia-300/70 min-[769px]:hidden"
           onClick={() => setMenuOpen((open) => !open)}
           type="button"
         >
@@ -159,7 +170,7 @@ export function SiteHeader({
 
       {menuOpen ? (
         <div
-          className="border-t border-slate-200 bg-white shadow-lg min-[769px]:hidden"
+          className="neo-surface border-t border-violet-300/20 bg-[#12121a]/95 shadow-2xl min-[769px]:hidden"
           id="site-mobile-menu"
         >
           <div className={`mx-auto w-full ${containerClass} px-4 py-4 sm:px-6`}>
@@ -171,8 +182,8 @@ export function SiteHeader({
                   <Link
                     className={`rounded-md px-3 py-3 text-sm font-bold transition ${
                       active
-                        ? 'bg-slate-950 text-white'
-                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                        ? 'bg-violet-500/20 text-violet-50 ring-1 ring-violet-300/40'
+                        : 'text-slate-300 hover:bg-violet-500/10 hover:text-violet-50'
                     }`}
                     href={link.href}
                     key={`${link.href}-${link.label}-mobile`}
@@ -184,12 +195,12 @@ export function SiteHeader({
               })}
             </nav>
 
-            <div className="mt-4 border-t border-slate-200 pt-4">
+            <div className="mt-4 border-t border-violet-300/20 pt-4">
               {loading ? (
-                <div className="h-11 rounded-md border border-slate-200 bg-slate-50" />
+                <div className="h-11 rounded-[16px] border border-violet-300/20 bg-violet-500/10" />
               ) : user ? (
                 <div className="grid gap-3">
-                  <div className="flex min-w-0 items-center gap-3 rounded-md bg-slate-50 p-3">
+                  <div className="neo-panel flex min-w-0 items-center gap-3 rounded-[18px] border border-violet-300/20 p-3">
                     <span
                       aria-hidden="true"
                       className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 bg-cover bg-center text-sm font-bold text-white"
@@ -214,13 +225,13 @@ export function SiteHeader({
                   </div>
 
                   <Link
-                    className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
+                    className="neo-button inline-flex h-11 items-center justify-center rounded-[16px] border border-violet-300/30 px-4 text-sm font-bold text-violet-50 transition hover:border-fuchsia-300/70"
                     href="/profile"
                   >
                     Кабінет
                   </Link>
                   <button
-                    className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                    className="neo-button inline-flex h-11 items-center justify-center rounded-[16px] bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
                     onClick={handleSignOut}
                     type="button"
                   >
@@ -229,7 +240,7 @@ export function SiteHeader({
                 </div>
               ) : (
                 <button
-                  className="inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                  className="neo-button inline-flex h-11 w-full items-center justify-center rounded-[16px] bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
                   onClick={handleOpenAuth}
                   type="button"
                 >
