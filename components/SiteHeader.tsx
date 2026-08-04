@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import AuthButton from '@/components/AuthButton';
 import { useAuth } from '@/components/AuthProvider';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 type HeaderLink = {
   href: string;
@@ -136,7 +137,8 @@ export function SiteHeader({
           })}
         </nav>
 
-        <div className="hidden min-[769px]:block">
+        <div className="hidden items-center gap-3 min-[769px]:flex">
+          <LanguageSwitcher />
           <AuthButton />
         </div>
 
@@ -196,6 +198,8 @@ export function SiteHeader({
             </nav>
 
             <div className="mt-4 border-t border-violet-300/20 pt-4">
+              <LanguageSwitcher className="mb-3 w-full justify-between" />
+
               {loading ? (
                 <div className="h-11 rounded-[16px] border border-violet-300/20 bg-violet-500/10" />
               ) : user ? (
