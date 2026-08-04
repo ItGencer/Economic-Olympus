@@ -24,6 +24,7 @@ type LastRoll = {
 
 type DiceProps = {
   className?: string;
+  compact?: boolean;
   currentTurnPlayerId?: PlayerId | null;
   disabled?: boolean;
   gameId: GameId | null;
@@ -74,13 +75,16 @@ function isRollDiceResult(value: unknown): value is RollDiceResult {
   );
 }
 
-function DieFace({ value }: { value: number | null }) {
+function DieFace({ compact, value }: { compact?: boolean; value: number | null }) {
   const activePips = value ? pipPositions[value] ?? [] : [];
 
   return (
     <div
       aria-label={value ? `Кубик: ${value}` : 'Кубик не кинуто'}
-      className="grid h-20 w-20 shrink-0 grid-cols-3 grid-rows-3 gap-1 rounded-md border border-slate-300 bg-white p-3 shadow-sm"
+      className={joinClassNames(
+        'grid shrink-0 grid-cols-3 grid-rows-3 rounded-md border border-slate-300 bg-white shadow-sm',
+        compact ? 'h-14 w-14 gap-0.5 p-2' : 'h-20 w-20 gap-1 p-3',
+      )}
       role="img"
     >
       {Array.from({ length: 9 }, (_, index) => {
@@ -89,7 +93,8 @@ function DieFace({ value }: { value: number | null }) {
         return (
           <span
             className={joinClassNames(
-              'h-3 w-3 self-center justify-self-center rounded-full',
+              'self-center justify-self-center rounded-full',
+              compact ? 'h-2.5 w-2.5' : 'h-3 w-3',
               activePips.includes(position) ? 'bg-slate-950' : 'bg-transparent',
             )}
             key={position}
@@ -102,6 +107,7 @@ function DieFace({ value }: { value: number | null }) {
 
 export function Dice({
   className,
+  compact,
   currentTurnPlayerId,
   disabled,
   gameId,
@@ -167,16 +173,22 @@ export function Dice({
     <section
       aria-label="Кидок кубика"
       className={joinClassNames(
-        'rounded-md border border-slate-200 bg-white p-4 shadow-sm',
+        'rounded-md border border-slate-200 bg-white shadow-sm',
+        compact ? 'p-2' : 'p-4',
         className,
       )}
     >
-      <div className="flex items-center gap-4">
-        <DieFace value={lastRoll?.die ?? null} />
+      <div className={joinClassNames('flex items-center', compact ? 'gap-2' : 'gap-4')}>
+        <DieFace compact={compact} value={lastRoll?.die ?? null} />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-bold tracking-normal text-slate-950">
+            <h2
+              className={joinClassNames(
+                'font-bold tracking-normal text-slate-950',
+                compact ? 'text-sm' : 'text-lg',
+              )}
+            >
               Кубик
             </h2>
             {lastRoll?.skipped ? (
@@ -186,7 +198,15 @@ export function Dice({
             ) : null}
           </div>
 
-          <p className="mt-2 text-sm leading-6 text-slate-600" aria-live="polite">
+          <p
+            className={joinClassNames(
+              'text-slate-600',
+              compact
+                ? 'mt-1 truncate text-[11px] font-semibold leading-4'
+                : 'mt-2 text-sm leading-6',
+            )}
+            aria-live="polite"
+          >
             {lastRoll
               ? `${lastRoll.fromCellId} → ${lastRoll.toCellId}`
               : turnIsKnown && !canRoll && !busy
@@ -203,7 +223,10 @@ export function Dice({
       </div>
 
       <button
-        className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={joinClassNames(
+          'inline-flex w-full items-center justify-center rounded-md bg-slate-950 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300',
+          compact ? 'mt-2 h-9 px-3 text-xs' : 'mt-4 h-11 px-4 text-sm',
+        )}
         disabled={!canRoll}
         onClick={handleRollDice}
         type="button"

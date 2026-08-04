@@ -688,7 +688,7 @@ begin
           on shares.company_id = companies.id
          and shares.player_id = v_player.id
         where companies.game_id = v_game.id
-          and shares.share_count >= v_min_ownership
+          and (shares.share_count::numeric / greatest(companies.total_shares, 1)::numeric) * 100 >= v_min_ownership
           and not exists (
             select 1
             from public.directors active_directors

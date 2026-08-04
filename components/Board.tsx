@@ -108,7 +108,7 @@ function CellTile({
   return (
     <div
       className={joinClassNames(
-        'relative flex min-h-0 min-w-0 flex-col justify-between rounded-md border p-1 shadow-sm transition',
+        'relative flex min-h-0 min-w-0 flex-col justify-between rounded-md border p-1.5 shadow-sm transition',
         'focus-within:ring-2 focus-within:ring-emerald-500',
         typeStyles[cell.type],
         isActive && 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-slate-50',
@@ -119,7 +119,7 @@ function CellTile({
       }}
       title={`${cell.params.label} (${cell.type})`}
     >
-      <span className="block overflow-hidden text-center text-[9px] font-bold leading-tight [overflow-wrap:anywhere] sm:text-[10px]">
+      <span className="block overflow-hidden text-center text-[10px] font-bold leading-tight [overflow-wrap:anywhere] md:text-[11px]">
         {cell.params.label}
       </span>
 
@@ -171,10 +171,13 @@ export function Board({
   return (
     <section
       aria-label="Ігрова дошка"
-      className={joinClassNames('w-full max-w-5xl', className)}
+      className={joinClassNames(
+        'w-full max-w-5xl overflow-x-auto overscroll-x-contain pb-2',
+        className,
+      )}
     >
       <div
-        className="grid aspect-square w-full gap-1 rounded-md border border-slate-200 bg-slate-100 p-2 shadow-sm sm:gap-1.5 sm:p-3"
+        className="grid aspect-square w-full gap-1.5 rounded-md border border-slate-200 bg-slate-100 p-2 shadow-sm max-[768px]:min-w-[760px] sm:p-3"
         style={{
           gridTemplateColumns: `repeat(${gridSideLength}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${gridSideLength}, minmax(0, 1fr))`,
@@ -201,7 +204,7 @@ export function Board({
         ))}
 
         <div
-          className="flex min-h-0 min-w-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white p-3 text-center"
+          className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-white p-2 text-center lg:p-3"
           style={{
             gridColumn: `${centerStart} / ${centerEnd}`,
             gridRow: `${centerStart} / ${centerEnd}`,

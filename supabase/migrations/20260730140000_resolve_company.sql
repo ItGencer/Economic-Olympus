@@ -7,17 +7,17 @@ set search_path = public
 as $$
   with companies(cell_id, company_id, company_name, share_price, inventory_per_share) as (
     values
-      ('outer-company-logistics-04', 'company-logistics', 'Логістика', 120, 1),
-      ('outer-company-retail-11', 'company-retail', 'Ритейл', 100, 1),
-      ('outer-company-tech-14', 'company-tech', 'Технології', 180, 1),
-      ('outer-company-finance-18', 'company-finance', 'Фінанси', 200, 1),
-      ('outer-company-energy-22', 'company-energy', 'Енергетика', 220, 1),
-      ('outer-company-media-27', 'company-media', 'Медіа', 160, 1)
+      ('outer-company-logistics-04', 'company-logistics', 'Логістика', 1500, 1),
+      ('outer-company-retail-11', 'company-retail', 'Ритейл', 500, 1),
+      ('outer-company-tech-14', 'company-tech', 'Технології', 8000, 1),
+      ('outer-company-finance-18', 'company-finance', 'Фінанси', 5000, 1),
+      ('outer-company-energy-22', 'company-energy', 'Енергетика', 10000, 1),
+      ('outer-company-media-27', 'company-media', 'Медіа', 2500, 1)
   )
   select jsonb_build_object(
     'companyId', companies.company_id,
     'name', companies.company_name,
-    'totalShares', 100,
+    'totalShares', 2000,
     'sharePrice', companies.share_price,
     'inventoryPerShare', companies.inventory_per_share
   )
@@ -51,12 +51,12 @@ begin
     inventory_per_share
   )
   values
-    (p_game_id, 'company-logistics', 'Логістика', 100, 120, 1),
-    (p_game_id, 'company-retail', 'Ритейл', 100, 100, 1),
-    (p_game_id, 'company-tech', 'Технології', 100, 180, 1),
-    (p_game_id, 'company-finance', 'Фінанси', 100, 200, 1),
-    (p_game_id, 'company-energy', 'Енергетика', 100, 220, 1),
-    (p_game_id, 'company-media', 'Медіа', 100, 160, 1)
+    (p_game_id, 'company-logistics', 'Логістика', 2000, 1500, 1),
+    (p_game_id, 'company-retail', 'Ритейл', 2000, 500, 1),
+    (p_game_id, 'company-tech', 'Технології', 2000, 8000, 1),
+    (p_game_id, 'company-finance', 'Фінанси', 2000, 5000, 1),
+    (p_game_id, 'company-energy', 'Енергетика', 2000, 10000, 1),
+    (p_game_id, 'company-media', 'Медіа', 2000, 2500, 1)
   on conflict (game_id, config_id) do update
   set
     name = excluded.name,
@@ -589,7 +589,8 @@ begin
       'cost', v_cost,
       'inventoryGain', v_inventory_gain,
       'playerShares', v_player_shares,
-      'ownershipPercent', v_player_shares,
+      'ownershipPercent',
+      round((v_player_shares::numeric / greatest(v_company.total_shares, 1)::numeric) * 100, 2),
       'nextPlayerId', v_next_player_id,
       'debtLocked', v_debt_locked
     )
@@ -603,7 +604,8 @@ begin
     'cost', v_cost,
     'inventory_gain', v_inventory_gain,
     'player_shares', v_player_shares,
-    'ownership_percent', v_player_shares,
+    'ownership_percent',
+    round((v_player_shares::numeric / greatest(v_company.total_shares, 1)::numeric) * 100, 2),
     'next_player_id', v_next_player_id,
     'state', v_state
   );

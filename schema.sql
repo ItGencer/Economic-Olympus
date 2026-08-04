@@ -86,7 +86,7 @@ create table if not exists public.companies (
   game_id uuid not null references public.games(id) on delete cascade,
   config_id text not null,
   name text not null,
-  total_shares integer not null default 100 check (total_shares = 100),
+  total_shares integer not null default 2000 check (total_shares = 2000),
   share_price numeric(12, 2) not null check (share_price > 0),
   inventory_per_share numeric(12, 2) not null default 1 check (inventory_per_share >= 0),
   created_at timestamptz not null default now(),
@@ -99,7 +99,7 @@ create table if not exists public.shares (
   game_id uuid not null references public.games(id) on delete cascade,
   company_id uuid not null references public.companies(id) on delete cascade,
   player_id uuid not null references public.players(id) on delete cascade,
-  share_count integer not null default 0 check (share_count between 0 and 100),
+  share_count integer not null default 0 check (share_count between 0 and 2000),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint shares_unique_player_company unique (company_id, player_id)
@@ -246,4 +246,3 @@ begin
     end;
   end if;
 end $$;
-

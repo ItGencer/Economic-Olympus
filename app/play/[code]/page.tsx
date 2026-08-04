@@ -9,11 +9,17 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import D20Dice from '@/components/D20Dice';
 import Dice from '@/components/Dice';
 import GameLog from '@/components/GameLog';
-import PlayerCard from '@/components/PlayerCard';
 import SiteHeader from '@/components/SiteHeader';
 import { useGameRealtime } from '@/hooks/useGameRealtime';
 import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
-import type { GameState, PendingAction, Player, PlayerId } from '@/types';
+import type {
+  Company,
+  CompanyId,
+  GameState,
+  PendingAction,
+  Player,
+  PlayerId,
+} from '@/types';
 
 type PlayPageProps = {
   params: {
@@ -24,6 +30,53 @@ type PlayPageProps = {
 type RpcArgs = Record<string, number | string | null>;
 type CasinoParity = 'even' | 'odd';
 type CasinoStep = 'intro' | 'bet';
+type CompanyCatalogItem = {
+  id: CompanyId;
+  name: string;
+  sharePrice: number;
+  totalShares: number;
+};
+
+const COMPANY_SHARE_POOL = 2000;
+
+const companyCatalog: CompanyCatalogItem[] = [
+  {
+    id: 'company-logistics',
+    name: 'Логістика',
+    sharePrice: 1500,
+    totalShares: COMPANY_SHARE_POOL,
+  },
+  {
+    id: 'company-retail',
+    name: 'Ритейл',
+    sharePrice: 500,
+    totalShares: COMPANY_SHARE_POOL,
+  },
+  {
+    id: 'company-tech',
+    name: 'Технології',
+    sharePrice: 8000,
+    totalShares: COMPANY_SHARE_POOL,
+  },
+  {
+    id: 'company-finance',
+    name: 'Фінанси',
+    sharePrice: 5000,
+    totalShares: COMPANY_SHARE_POOL,
+  },
+  {
+    id: 'company-energy',
+    name: 'Енергетика',
+    sharePrice: 10000,
+    totalShares: COMPANY_SHARE_POOL,
+  },
+  {
+    id: 'company-media',
+    name: 'Медіа',
+    sharePrice: 2500,
+    totalShares: COMPANY_SHARE_POOL,
+  },
+];
 
 const d6PipPositions: Record<number, number[]> = {
   1: [5],
@@ -282,6 +335,10 @@ const integerFormatter = new Intl.NumberFormat('uk-UA', {
   maximumFractionDigits: 0,
 });
 
+const percentFormatter = new Intl.NumberFormat('uk-UA', {
+  maximumFractionDigits: 2,
+});
+
 function joinClassNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
 }
@@ -296,6 +353,33 @@ function formatMoney(value: number) {
 
 function formatInteger(value: number) {
   return integerFormatter.format(value);
+}
+
+function formatPercent(value: number) {
+  return `${percentFormatter.format(value)}%`;
+}
+
+function formatRing(ring: Player['ring']) {
+  return ring === 'inner' ? 'Внутрішнє коло' : 'Зовнішнє коло';
+}
+
+function getSharePercent(shareCount: number, totalShares: number) {
+  if (totalShares <= 0) {
+    return 0;
+  }
+
+  return (shareCount / totalShares) * 100;
+}
+
+function getSoldCompanyShares(company?: Company) {
+  if (!company) {
+    return 0;
+  }
+
+  return Object.values(company.shareholders).reduce(
+    (total, shareCount) => total + shareCount,
+    0,
+  );
 }
 
 function formatCasinoParity(value: CasinoParity) {
@@ -518,6 +602,196 @@ function SeatSwitcher({
   );
 }
 
+function PrivatePlayerStatsModal({
+  gameState,
+  onClose,
+  open,
+  player,
+}: {
+  gameState: GameState;
+  onClose: () => void;
+  open: boolean;
+  player: Player;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  const companyRows = companyCatalog.map((companyItem) => {
+    const company = gameState.companies[companyItem.id];
+    const totalShares = company?.totalShares ?? companyItem.totalShares;
+    const soldShares = getSoldCompanyShares(company);
+    const ownedShares = player.shares[companyItem.id] ?? 0;
+    const availableShares = Math.max(totalShares - soldShares, 0);
+
+    return {
+      availablePercent: getSharePercent(availableShares, totalShares),
+      availableShares,
+      id: companyItem.id,
+      name: company?.name ?? companyItem.name,
+      ownedPercent: getSharePercent(ownedShares, totalShares),
+      ownedShares,
+      sharePrice: company?.sharePrice ?? companyItem.sharePrice,
+      totalShares,
+    };
+  });
+  const tenders = player.tenderIds
+    .map((tenderId) => gameState.tenders[tenderId])
+    .filter(Boolean);
+  const meetingsTotal = player.successfulDeals + player.failedDeals;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      role="presentation"
+    >
+      <section
+        aria-labelledby="private-player-card-title"
+        aria-modal="true"
+        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-md border border-slate-200 bg-white shadow-2xl shadow-slate-950/25"
+        role="dialog"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-normal text-emerald-700">
+              Приватна статистика
+            </p>
+            <h2
+              className="mt-1 truncate text-2xl font-bold tracking-normal text-slate-950"
+              id="private-player-card-title"
+            >
+              {player.name}
+            </h2>
+          </div>
+          <button
+            aria-label="Закрити картку гравця"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 text-lg font-bold text-slate-600 transition hover:bg-slate-50"
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="space-y-5 px-5 py-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                Баланс
+              </p>
+              <p className="mt-1 text-lg font-bold text-slate-950">
+                {formatMoney(player.balance)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                Імідж
+              </p>
+              <p className="mt-1 text-lg font-bold text-slate-950">
+                {formatInteger(player.image)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                Зустрічі
+              </p>
+              <p className="mt-1 text-lg font-bold text-slate-950">
+                {formatInteger(meetingsTotal)}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {formatInteger(player.successfulDeals)} успішних /{' '}
+                {formatInteger(player.failedDeals)} провалених
+              </p>
+            </div>
+          </div>
+
+          <section>
+            <h3 className="text-base font-bold tracking-normal text-slate-950">
+              Акції компаній
+            </h3>
+            <div className="mt-3 grid gap-2">
+              {companyRows.map((company) => (
+                <div
+                  className="grid gap-3 rounded-md border border-slate-200 bg-white px-3 py-3 sm:grid-cols-[minmax(0,1fr)_160px_160px]"
+                  key={company.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-950">
+                      {company.name}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      1 акція: {formatMoney(company.sharePrice)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                      Куплено
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-950">
+                      {formatInteger(company.ownedShares)} /{' '}
+                      {formatPercent(company.ownedPercent)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                      Вільно
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-emerald-700">
+                      {formatInteger(company.availableShares)} /{' '}
+                      {formatPercent(company.availablePercent)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <h3 className="text-base font-bold tracking-normal text-slate-950">
+                Тендери
+              </h3>
+              {tenders.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-sm font-semibold text-slate-700">
+                  {tenders.map((tender) => (
+                    <li key={tender.id}>
+                      {tender.country}: {formatMoney(tender.buyout)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Тендерів поки немає.
+                </p>
+              )}
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <h3 className="text-base font-bold tracking-normal text-slate-950">
+                Позиція
+              </h3>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-700">
+                <span>Коло</span>
+                <span className="text-right text-slate-950">
+                  {formatRing(player.ring)}
+                </span>
+                <span>Клітинка</span>
+                <span className="text-right text-slate-950">
+                  {player.cellId}
+                </span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function PendingActionPanel({
   action,
   activePlayer,
@@ -587,6 +861,17 @@ function PendingActionPanel({
       );
 
       setCasinoBetInput(String(nextStake));
+    }
+
+    if (action?.type === 'company_share_purchase') {
+      const maxPurchasableShares = Math.max(
+        0,
+        Math.floor(readPayloadNumber(action.payload, 'maxPurchasableShares')),
+      );
+
+      setShareCount(maxPurchasableShares > 0 ? 1 : 0);
+    } else {
+      setShareCount(1);
     }
   }, [action?.id, action?.type, activePlayer?.balance]);
 
@@ -701,6 +986,64 @@ function PendingActionPanel({
   );
   const reputationCanStart =
     reputationPhase === 'initial' || reputationPhase === 'dice_rolled';
+  const companyName = readPayloadString(action.payload, 'name', 'Компанія');
+  const companyTotalShares = Math.max(
+    1,
+    Math.floor(
+      readPayloadNumber(action.payload, 'totalShares', COMPANY_SHARE_POOL),
+    ),
+  );
+  const companySoldShares = Math.max(
+    0,
+    Math.floor(readPayloadNumber(action.payload, 'soldShares')),
+  );
+  const companyAvailableShares = Math.max(
+    0,
+    Math.floor(
+      readPayloadNumber(
+        action.payload,
+        'availableShares',
+        companyTotalShares - companySoldShares,
+      ),
+    ),
+  );
+  const companyPlayerShares = Math.max(
+    0,
+    Math.floor(readPayloadNumber(action.payload, 'playerShares')),
+  );
+  const companySharePrice = Math.max(
+    0,
+    Math.floor(readPayloadNumber(action.payload, 'sharePrice')),
+  );
+  const companyMaxAffordableShares = Math.max(
+    0,
+    Math.floor(
+      readPayloadNumber(
+        action.payload,
+        'maxAffordableShares',
+        companySharePrice > 0
+          ? Math.floor((activePlayer?.balance ?? 0) / companySharePrice)
+          : 0,
+      ),
+    ),
+  );
+  const companyMaxPurchasableShares = Math.max(
+    0,
+    Math.floor(
+      readPayloadNumber(
+        action.payload,
+        'maxPurchasableShares',
+        Math.min(companyAvailableShares, companyMaxAffordableShares),
+      ),
+    ),
+  );
+  const companyPurchaseCost = shareCount * companySharePrice;
+  const canSubmitCompanyPurchase = Boolean(
+    canAct &&
+      !busy &&
+      shareCount > 0 &&
+      shareCount <= companyMaxPurchasableShares,
+  );
 
   if (action.type === 'random_event' && randomCard) {
     const randomSign = readPayloadString(action.payload, 'sign', 'positive');
@@ -1769,42 +2112,111 @@ function PendingActionPanel({
         ) : null}
 
         {action.type === 'company_share_purchase' ? (
-          <div className="grid grid-cols-[minmax(0,1fr)_112px_112px] gap-2">
-            <input
-              className="h-10 min-w-0 rounded-md border border-slate-300 px-3 text-sm font-semibold outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-              min={0}
-              onChange={(event) =>
-                setShareCount(Math.max(0, Number(event.target.value) || 0))
-              }
-              type="number"
-              value={shareCount}
-            />
-            <button
-              className="h-10 rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={!canAct || busy}
-              onClick={() =>
-                runRpc('resolve_company', {
-                  p_game_id: gameState.gameId,
-                  p_share_count: shareCount,
-                })
-              }
-              type="button"
-            >
-              Купити
-            </button>
-            <button
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-              disabled={!canAct || busy}
-              onClick={() =>
-                runRpc('resolve_company', {
-                  p_game_id: gameState.gameId,
-                  p_share_count: 0,
-                })
-              }
-              type="button"
-            >
-              0
-            </button>
+          <div className="space-y-4 rounded-md border border-indigo-100 bg-indigo-50 p-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-normal text-indigo-700">
+                Компанія
+              </p>
+              <h3 className="mt-1 text-xl font-bold tracking-normal text-slate-950">
+                {companyName}
+              </h3>
+            </div>
+
+            <div className="grid gap-2 text-center sm:grid-cols-3">
+              <div className="rounded-md bg-white px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                  1 акція
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-950">
+                  {formatMoney(companySharePrice)}
+                </p>
+              </div>
+              <div className="rounded-md bg-white px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                  Вільно
+                </p>
+                <p className="mt-1 text-sm font-bold text-emerald-700">
+                  {formatInteger(companyAvailableShares)} /{' '}
+                  {formatPercent(
+                    getSharePercent(companyAvailableShares, companyTotalShares),
+                  )}
+                </p>
+              </div>
+              <div className="rounded-md bg-white px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                  Ваші акції
+                </p>
+                <p className="mt-1 text-sm font-bold text-indigo-700">
+                  {formatInteger(companyPlayerShares)} /{' '}
+                  {formatPercent(
+                    getSharePercent(companyPlayerShares, companyTotalShares),
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-normal text-slate-600">
+                Кількість для покупки
+              </span>
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none transition focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100"
+                max={companyMaxPurchasableShares}
+                min={0}
+                onChange={(event) => {
+                  const nextShareCount = Math.floor(
+                    Number(event.target.value) || 0,
+                  );
+
+                  setShareCount(
+                    Math.max(
+                      0,
+                      Math.min(companyMaxPurchasableShares, nextShareCount),
+                    ),
+                  );
+                }}
+                type="number"
+                value={shareCount}
+              />
+            </label>
+
+            <div className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+              <p>
+                Максимум зараз: {formatInteger(companyMaxPurchasableShares)} шт.
+              </p>
+              <p className="mt-1">
+                Вартість покупки: {formatMoney(companyPurchaseCost)}
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                className="h-11 rounded-md bg-indigo-600 px-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={!canSubmitCompanyPurchase}
+                onClick={() =>
+                  runRpc('resolve_company', {
+                    p_game_id: gameState.gameId,
+                    p_share_count: shareCount,
+                  })
+                }
+                type="button"
+              >
+                Купити
+              </button>
+              <button
+                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                disabled={!canAct || busy}
+                onClick={() =>
+                  runRpc('resolve_company', {
+                    p_game_id: gameState.gameId,
+                    p_share_count: 0,
+                  })
+                }
+                type="button"
+              >
+                Не купляти
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -1887,6 +2299,7 @@ export default function PlayPage({ params }: PlayPageProps) {
   } = useGameRealtime({ joinCode });
   const [activePlayerId, setActivePlayerId] = useState<PlayerId | null>(null);
   const [botTurnError, setBotTurnError] = useState<string | null>(null);
+  const [privatePlayerCardOpen, setPrivatePlayerCardOpen] = useState(false);
   const [thinkingBotPlayerId, setThinkingBotPlayerId] =
     useState<PlayerId | null>(null);
 
@@ -1919,6 +2332,13 @@ export default function PlayPage({ params }: PlayPageProps) {
     () => players.find((player) => player.id === activePlayerId) ?? null,
     [activePlayerId, players],
   );
+  const privatePlayer = useMemo(
+    () =>
+      currentPlayer
+        ? players.find((player) => player.id === currentPlayer.id) ?? currentPlayer
+        : null,
+    [currentPlayer, players],
+  );
   const boardPlayers = useMemo(
     () =>
       players.map((player) => ({
@@ -1942,6 +2362,12 @@ export default function PlayPage({ params }: PlayPageProps) {
     !isActivePlayerTurn ||
     !canControlActivePlayer ||
     Boolean(gameState.pendingAction);
+
+  useEffect(() => {
+    if (!privatePlayer) {
+      setPrivatePlayerCardOpen(false);
+    }
+  }, [privatePlayer?.id]);
 
   useEffect(() => {
     if (
@@ -2150,47 +2576,52 @@ export default function PlayPage({ params }: PlayPageProps) {
               <Board
                 activeCellId={activeCellId}
                 centerSlot={
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-                      Зараз ходить
-                    </p>
-                    <p className="mt-1 truncate text-sm font-bold text-slate-950">
-                      {currentTurnPlayer?.name ?? 'очікується'}
-                    </p>
-                    {currentTurnPlayer?.isBot ? (
-                      <p className="mt-2 truncate text-xs font-semibold text-amber-700">
-                        {thinkingBotPlayerId === currentTurnPlayer.id
-                          ? 'Бот думає...'
-                          : 'Автохід бота'}
+                  <div className="mx-auto flex w-full max-w-[220px] flex-col items-center gap-2 lg:max-w-[300px]">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+                        Зараз ходить
                       </p>
-                    ) : null}
-                    {activePlayer ? (
-                      <p className="mt-2 truncate text-xs font-semibold text-emerald-700">
-                        Активне сидіння: {activePlayer.name}
+                      <p className="mt-1 truncate text-sm font-bold text-slate-950">
+                        {currentTurnPlayer?.name ?? 'очікується'}
                       </p>
+                      {currentTurnPlayer?.isBot ? (
+                        <p className="mt-2 truncate text-xs font-semibold text-amber-700">
+                          {thinkingBotPlayerId === currentTurnPlayer.id
+                            ? 'Бот думає...'
+                            : 'Автохід бота'}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <Dice
+                      className="w-full text-left shadow-none xl:hidden"
+                      compact
+                      currentTurnPlayerId={gameState.currentTurnPlayerId}
+                      disabled={diceDisabled}
+                      gameId={gameState.gameId}
+                      isCurrentPlayerTurn={isActivePlayerTurn}
+                      onRolled={refresh}
+                      playerId={activePlayer?.id ?? null}
+                    />
+
+                    {privatePlayer ? (
+                      <button
+                        className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
+                        onClick={() => setPrivatePlayerCardOpen(true)}
+                        type="button"
+                      >
+                        Карточка гравця
+                      </button>
                     ) : null}
                   </div>
                 }
                 players={boardPlayers}
               />
-
-              {players.length > 0 ? (
-                <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                  {players.map((player) => (
-                    <PlayerCard
-                      gameState={gameState}
-                      isCurrentTurn={player.id === gameState.currentTurnPlayerId}
-                      isCurrentUser={player.id === currentPlayer?.id}
-                      key={player.id}
-                      player={player}
-                    />
-                  ))}
-                </section>
-              ) : null}
             </div>
 
             <aside className="space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
               <Dice
+                className="hidden xl:block"
                 currentTurnPlayerId={gameState.currentTurnPlayerId}
                 disabled={diceDisabled}
                 gameId={gameState.gameId}
@@ -2252,6 +2683,15 @@ export default function PlayPage({ params }: PlayPageProps) {
                       Це сидіння відкрите для перегляду.
                     </p>
                   ) : null}
+                  {privatePlayer ? (
+                    <button
+                      className="mt-3 h-10 w-full rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      onClick={() => setPrivatePlayerCardOpen(true)}
+                      type="button"
+                    >
+                      Карточка гравця
+                    </button>
+                  ) : null}
                 </section>
               ) : null}
 
@@ -2279,6 +2719,15 @@ export default function PlayPage({ params }: PlayPageProps) {
               />
             </aside>
           </div>
+        ) : null}
+
+        {gameState && privatePlayer ? (
+          <PrivatePlayerStatsModal
+            gameState={gameState}
+            onClose={() => setPrivatePlayerCardOpen(false)}
+            open={privatePlayerCardOpen}
+            player={privatePlayer}
+          />
         ) : null}
       </main>
     </div>

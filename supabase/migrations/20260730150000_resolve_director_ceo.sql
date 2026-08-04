@@ -165,7 +165,8 @@ begin
       jsonb_build_object(
         'companyId', companies.config_id,
         'name', companies.name,
-        'ownershipPercent', shares.share_count,
+        'ownershipPercent',
+        round((shares.share_count::numeric / greatest(companies.total_shares, 1)::numeric) * 100, 2),
         'hasActiveDirector', active_directors.id is not null,
         'activeDirectorId', active_directors.id
       )
@@ -182,7 +183,7 @@ begin
     on active_directors.company_id = companies.id
    and active_directors.status = 'active'
   where companies.game_id = v_game.id
-    and shares.share_count >= v_min_ownership;
+    and (shares.share_count::numeric / greatest(companies.total_shares, 1)::numeric) * 100 >= v_min_ownership;
 
   with controlled_companies as (
     select companies.id as company_id
@@ -191,7 +192,7 @@ begin
       on shares.company_id = companies.id
      and shares.player_id = v_player.id
     where companies.game_id = v_game.id
-      and shares.share_count >= v_min_ownership
+      and (shares.share_count::numeric / greatest(companies.total_shares, 1)::numeric) * 100 >= v_min_ownership
       and not exists (
         select 1
         from public.directors active_directors
@@ -442,7 +443,10 @@ begin
       directors.voting_coefficient,
       companies.config_id as company_id,
       companies.name as company_name,
-      coalesce(shares.share_count, 0)::numeric as ownership_percent
+      round(
+        (coalesce(shares.share_count, 0)::numeric / greatest(companies.total_shares, 1)::numeric) * 100,
+        2
+      ) as ownership_percent
     from public.directors
     join public.companies
       on companies.id = directors.company_id

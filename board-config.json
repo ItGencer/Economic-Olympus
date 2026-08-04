@@ -209,8 +209,8 @@
       "label": "Компанія: Логістика",
       "companyId": "company-logistics",
       "name": "Логістика",
-      "totalShares": 100,
-      "sharePrice": 120,
+      "totalShares": 2000,
+      "sharePrice": 1500,
       "inventoryPerShare": 1
     }
   },
@@ -288,8 +288,8 @@
       "label": "Компанія: Ритейл",
       "companyId": "company-retail",
       "name": "Ритейл",
-      "totalShares": 100,
-      "sharePrice": 100,
+      "totalShares": 2000,
+      "sharePrice": 500,
       "inventoryPerShare": 1
     }
   },
@@ -323,8 +323,8 @@
       "label": "Компанія: Технології",
       "companyId": "company-tech",
       "name": "Технології",
-      "totalShares": 100,
-      "sharePrice": 180,
+      "totalShares": 2000,
+      "sharePrice": 8000,
       "inventoryPerShare": 1
     }
   },
@@ -366,8 +366,8 @@
       "label": "Компанія: Фінанси",
       "companyId": "company-finance",
       "name": "Фінанси",
-      "totalShares": 100,
-      "sharePrice": 200,
+      "totalShares": 2000,
+      "sharePrice": 5000,
       "inventoryPerShare": 1
     }
   },
@@ -411,8 +411,8 @@
       "label": "Компанія: Енергетика",
       "companyId": "company-energy",
       "name": "Енергетика",
-      "totalShares": 100,
-      "sharePrice": 220,
+      "totalShares": 2000,
+      "sharePrice": 10000,
       "inventoryPerShare": 1
     }
   },
@@ -467,8 +467,8 @@
       "label": "Компанія: Медіа",
       "companyId": "company-media",
       "name": "Медіа",
-      "totalShares": 100,
-      "sharePrice": 160,
+      "totalShares": 2000,
+      "sharePrice": 2500,
       "inventoryPerShare": 1
     }
   },
