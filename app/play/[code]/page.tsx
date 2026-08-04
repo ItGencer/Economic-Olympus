@@ -2494,71 +2494,78 @@ export default function PlayPage({ params }: PlayPageProps) {
 
         {gameState ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <div className="min-w-0 space-y-4">
-              <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-                      Код {gameState.joinCode}
-                    </p>
-                    <h1 className="mt-1 truncate text-2xl font-bold tracking-normal text-slate-950">
-                      Ігровий стіл
-                    </h1>
+            <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:items-start">
+                <div className="min-w-0">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
+                        Код {gameState.joinCode}
+                      </p>
+                      <h1 className="mt-1 truncate text-2xl font-bold tracking-normal text-slate-950">
+                        Ігровий стіл
+                      </h1>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
+                      <div className="rounded-md bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                          Статус
+                        </p>
+                        <p className="mt-1 truncate text-sm font-bold text-slate-950">
+                          {statusLabels[gameState.status]}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                          Гравці
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-slate-950">
+                          {players.length}/{gameState.maxPlayers}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                          Realtime
+                        </p>
+                        <p
+                          className={joinClassNames(
+                            'mt-1 truncate text-sm font-bold',
+                            isRealtimeConnected
+                              ? 'text-emerald-700'
+                              : 'text-amber-700',
+                          )}
+                        >
+                          {isRealtimeConnected ? 'Online' : 'Sync'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                        Статус
-                      </p>
-                      <p className="mt-1 truncate text-sm font-bold text-slate-950">
-                        {statusLabels[gameState.status]}
-                      </p>
+
+                  {players.length > 0 ? (
+                    <div className="mt-4 border-t border-slate-200 pt-4">
+                      <SeatSwitcher
+                        activePlayerId={activePlayer?.id ?? null}
+                        browserPlayerId={currentPlayer?.id ?? null}
+                        currentTurnPlayerId={gameState.currentTurnPlayerId}
+                        onSelect={selectActivePlayer}
+                        players={players}
+                      />
                     </div>
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                        Гравці
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-slate-950">
-                        {players.length}/{gameState.maxPlayers}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                        Realtime
-                      </p>
-                      <p
-                        className={joinClassNames(
-                          'mt-1 truncate text-sm font-bold',
-                          isRealtimeConnected ? 'text-emerald-700' : 'text-amber-700',
-                        )}
-                      >
-                        {isRealtimeConnected ? 'Online' : 'Sync'}
-                      </p>
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
 
-                {players.length > 0 ? (
-                  <div className="mt-4 border-t border-slate-200 pt-4">
-                    <SeatSwitcher
-                      activePlayerId={activePlayer?.id ?? null}
-                      browserPlayerId={currentPlayer?.id ?? null}
-                      currentTurnPlayerId={gameState.currentTurnPlayerId}
-                      onSelect={selectActivePlayer}
-                      players={players}
-                    />
-                  </div>
-                ) : null}
-              </section>
+                <ConnectionStatus
+                  className="h-full shadow-none"
+                  isOnline={isBrowserOnline}
+                  lastSyncedAt={lastSyncedAt}
+                  onRefresh={refresh}
+                  realtimeStatus={realtimeStatus}
+                  refreshing={refreshing}
+                />
+              </div>
+            </section>
 
-              <ConnectionStatus
-                isOnline={isBrowserOnline}
-                lastSyncedAt={lastSyncedAt}
-                onRefresh={refresh}
-                realtimeStatus={realtimeStatus}
-                refreshing={refreshing}
-              />
-
+            <div className="min-w-0 space-y-4">
               {gameState.status === 'lobby' ? (
                 <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
                   Гра ще в лобі. Почати можна зі сторінки лобі.
