@@ -15,7 +15,6 @@ type HeaderLink = {
 type SiteHeaderProps = {
   extraLinks?: HeaderLink[];
   maxWidth?: 'default' | 'wide';
-  startHref?: string;
 };
 
 const DEFAULT_EXTRA_LINKS: HeaderLink[] = [];
@@ -62,7 +61,6 @@ function isActiveLink(pathname: string, href: string) {
 export function SiteHeader({
   extraLinks = DEFAULT_EXTRA_LINKS,
   maxWidth = 'default',
-  startHref = '/#start',
 }: SiteHeaderProps) {
   const pathname = usePathname();
   const { loading, openAuthModal, signOut, user } = useAuth();
@@ -76,10 +74,9 @@ export function SiteHeader({
     () => [
       { href: '/', label: 'Головна' },
       { href: '/rules', label: 'Правила гри' },
-      { href: startHref, label: 'Почати гру' },
       ...extraLinks,
     ],
-    [extraLinks, startHref],
+    [extraLinks],
   );
 
   useEffect(() => {

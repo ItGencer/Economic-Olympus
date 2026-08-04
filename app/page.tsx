@@ -251,7 +251,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      <SiteHeader startHref="#start" />
+      <SiteHeader />
 
       <main>
         <section className="border-b border-slate-200 bg-white">
