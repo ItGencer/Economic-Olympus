@@ -123,6 +123,8 @@ function readGameState(value: unknown): GameState | null {
         ...player,
         avatarColor: normalizeAvatarColor(player.avatarColor),
         avatarStyle: normalizeAvatarStyle(player.avatarStyle),
+        debtWarning: Boolean(player.debtWarning),
+        eliminated: Boolean(player.eliminated),
       }))
     : [];
 

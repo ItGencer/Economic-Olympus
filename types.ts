@@ -206,6 +206,8 @@ export interface Player {
   successfulDeals: number;
   failedDeals: number;
   debtLocked: boolean;
+  debtWarning?: boolean;
+  eliminated?: boolean;
   skipTurns: number;
   shares: Record<CompanyId, number>;
   tenderIds: TenderId[];

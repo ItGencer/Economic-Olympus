@@ -585,12 +585,14 @@ function SeatSwitcher({
         const isActive = player.id === activePlayerId;
         const isTurn = player.id === currentTurnPlayerId;
         const isBrowserPlayer = player.id === browserPlayerId;
+        const isEliminated = Boolean(player.eliminated);
 
         return (
           <button
             aria-pressed={isActive}
             className={joinClassNames(
               'neo-button min-w-36 rounded-[16px] border px-3 py-2 text-left transition',
+              isEliminated ? 'opacity-60' : undefined,
               isActive
                 ? 'border-violet-300 bg-violet-500/20 text-violet-50 ring-2 ring-violet-400/35'
                 : 'border-violet-300/20 bg-[#181824]/70 text-slate-300 hover:border-fuchsia-300/60 hover:bg-violet-500/10',
@@ -622,6 +624,11 @@ function SeatSwitcher({
                   {isBrowserPlayer ? (
                     <span className="rounded bg-slate-950 px-1.5 py-0.5 text-[11px] font-bold text-white">
                       Ви
+                    </span>
+                  ) : null}
+                  {isEliminated ? (
+                    <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[11px] font-bold text-rose-100 ring-1 ring-rose-300/35">
+                      Вибув
                     </span>
                   ) : null}
                 </span>
@@ -1136,13 +1143,11 @@ function PendingActionPanel({
   const canAffordImage = Boolean(
     activePlayer && activePlayer.balance >= imagePrice,
   );
-  const casinoBalance = Math.max(0, Math.floor(activePlayer?.balance ?? 0));
+  const casinoBalance = Math.floor(activePlayer?.balance ?? 0);
+  const casinoDefaultMaxStake = casinoBalance > 0 ? casinoBalance : 1000;
   const casinoMaxStake = Math.max(
     0,
-    Math.min(
-      casinoBalance,
-      readPayloadNumber(action.payload, 'maxStake', casinoBalance),
-    ),
+    readPayloadNumber(action.payload, 'maxStake', casinoDefaultMaxStake),
   );
   const casinoBetAmount = Number(casinoBetInput);
   const isCasinoBetValid =
@@ -1286,12 +1291,12 @@ function PendingActionPanel({
     const isPositiveRandom = randomSign !== 'negative';
 
     return (
-      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
-        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-lime-100/70 bg-emerald-900 text-white shadow-2xl shadow-emerald-950/40 ring-1 ring-white/25">
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent p-[clamp(10px,4vw,40px)]">
+        <section className="pointer-events-auto relative max-h-[calc(100dvh-20px)] w-full max-w-[640px] overflow-y-auto rounded-[24px] border border-lime-100/70 bg-emerald-900 text-white shadow-[0_28px_90px_rgba(2,44,34,0.58),0_0_42px_rgba(74,222,128,0.22)] ring-1 ring-white/25 sm:max-h-[calc(100dvh-48px)]">
           <div className="absolute inset-0 bg-[linear-gradient(145deg,_#d9f99d_0%,_#86efac_32%,_#22c55e_64%,_#166534_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.38),_transparent_38%),linear-gradient(to_bottom,_rgba(15,23,42,0.05),_rgba(15,23,42,0.46))]" />
 
-          <div className="relative z-10 space-y-5 p-5">
+          <div className="relative z-10 space-y-5 p-[clamp(16px,4vw,28px)]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 rounded-md bg-emerald-950/45 px-3 py-2 shadow-lg shadow-emerald-950/25 backdrop-blur-sm">
                 <p className="text-xs font-semibold uppercase tracking-normal text-lime-100">
@@ -1313,7 +1318,7 @@ function PendingActionPanel({
               </span>
             </div>
 
-            <div className="rounded-md border border-white/30 bg-white/90 p-4 text-slate-950 shadow-2xl shadow-emerald-950/25">
+            <div className="rounded-[20px] border border-white/45 bg-[#f8fff7]/95 p-[clamp(14px,3vw,22px)] text-[#10231b] shadow-2xl shadow-emerald-950/25 backdrop-blur-md">
               <div className="relative mx-auto aspect-[4/3] w-full max-w-[360px] overflow-hidden rounded-md bg-emerald-50 shadow-lg shadow-emerald-950/20">
                 <Image
                   alt={randomCard.alt}
@@ -1325,14 +1330,19 @@ function PendingActionPanel({
                 />
               </div>
 
-              <div className="mt-4 text-center">
-                <p className="text-xs font-bold uppercase tracking-normal text-emerald-700">
+              <div className="mt-4 rounded-[16px] border border-emerald-200/75 bg-white/92 px-4 py-4 text-center shadow-[0_12px_32px_rgba(6,78,59,0.12)]">
+                <p className="text-xs font-black uppercase tracking-normal text-[#047857]">
                   {randomCard.title}
                 </p>
-                <h3 className="mt-1 text-xl font-bold tracking-normal text-slate-950">
+                <h3
+                  className={joinClassNames(
+                    'mt-1 text-xl font-black tracking-normal',
+                    isPositiveRandom ? 'text-[#065f46]' : 'text-[#be123c]',
+                  )}
+                >
                   {formatRandomSign(randomSign)}
                 </h3>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                <p className="mx-auto mt-2 max-w-[430px] text-sm font-bold leading-6 text-[#243447]">
                   {isPositiveRandom
                     ? randomCard.positiveText
                     : randomCard.negativeText}
@@ -1344,8 +1354,8 @@ function PendingActionPanel({
                   className={joinClassNames(
                     'rounded-md px-3 py-3 shadow-sm',
                     isPositiveRandom
-                      ? 'bg-emerald-50 text-emerald-800'
-                      : 'bg-rose-50 text-rose-800',
+                      ? 'bg-[#ecfdf5] text-[#065f46]'
+                      : 'bg-[#fff1f2] text-[#be123c]',
                   )}
                 >
                   <p className="text-[11px] font-bold uppercase tracking-normal">
@@ -1356,14 +1366,14 @@ function PendingActionPanel({
                     {formatMoney(randomAmount)}
                   </p>
                 </div>
-                <div className="rounded-md bg-slate-50 px-3 py-3 text-slate-950 shadow-sm">
-                  <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                <div className="rounded-md bg-[#202335] px-3 py-3 text-white shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-normal text-[#c8c8d8]">
                     Баланс після
                   </p>
                   <p
                     className={joinClassNames(
                       'mt-1 text-lg font-black',
-                      randomBalanceAfter < 0 ? 'text-rose-700' : 'text-slate-950',
+                      randomBalanceAfter < 0 ? 'text-[#fb155f]' : 'text-[#f8fff7]',
                     )}
                   >
                     {formatMoney(randomBalanceAfter)}
@@ -1570,7 +1580,7 @@ function PendingActionPanel({
   if (action.type === 'deal_decision') {
     return (
       <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
-        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[640px] overflow-y-auto rounded-md border border-white/50 bg-rose-950 text-white shadow-2xl shadow-rose-950/40 ring-1 ring-white/30">
+        <section className="deal-readable pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[640px] overflow-y-auto rounded-md border border-white/50 bg-rose-950 text-white shadow-2xl shadow-rose-950/40 ring-1 ring-white/30">
           <div className="absolute inset-0">
             <Image
               alt="Ділова зустріч"
@@ -1771,7 +1781,7 @@ function PendingActionPanel({
   if (action.type === 'casino_bet') {
     return (
       <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
-        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[620px] overflow-y-auto rounded-md border border-amber-100/70 bg-slate-950 text-white shadow-2xl shadow-amber-950/40 ring-1 ring-white/25">
+        <section className="casino-readable pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[620px] overflow-y-auto rounded-md border border-amber-100/70 bg-slate-950 text-white shadow-2xl shadow-amber-950/40 ring-1 ring-white/25">
           <div className="absolute inset-0">
             <Image
               alt="Казино"
@@ -1831,6 +1841,12 @@ function PendingActionPanel({
                   {casinoMaxStake <= 0 ? (
                     <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
                       Недостатньо коштів для ставки.
+                    </p>
+                  ) : null}
+                  {casinoBalance < 0 && casinoMaxStake > 0 ? (
+                    <p className="rounded-md bg-amber-100/95 px-3 py-2 text-center text-xs font-bold text-amber-900">
+                      Казино дозволяє ставку в кредит до {formatMoney(casinoMaxStake)}.
+                      Програш збільшить борг.
                     </p>
                   ) : null}
                   <div className="grid grid-cols-2 gap-2">
@@ -2104,7 +2120,7 @@ function PendingActionPanel({
     return (
       <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent p-[clamp(10px,4vw,40px)]">
         <section
-          className="pointer-events-auto relative isolate max-h-[calc(100dvh-20px)] w-full max-w-[720px] overflow-y-auto rounded-[22px] border border-white/35 bg-[#32105d] bg-center p-[clamp(18px,4vw,36px)] text-white shadow-[0_24px_70px_rgba(2,2,8,0.58),0_0_45px_rgba(192,132,252,0.22)] ring-1 ring-white/20 sm:max-h-[calc(100dvh-48px)] lg:max-h-[calc(100dvh-80px)]"
+          className="image-readable pointer-events-auto relative isolate max-h-[calc(100dvh-20px)] w-full max-w-[720px] overflow-y-auto rounded-[22px] border border-white/35 bg-[#32105d] bg-center p-[clamp(18px,4vw,36px)] text-white shadow-[0_24px_70px_rgba(2,2,8,0.58),0_0_45px_rgba(192,132,252,0.22)] ring-1 ring-white/20 sm:max-h-[calc(100dvh-48px)] lg:max-h-[calc(100dvh-80px)]"
           style={{
             backgroundImage: "url('/image-cards/image-fon.jpg')",
             backgroundRepeat: 'no-repeat',
@@ -2138,7 +2154,7 @@ function PendingActionPanel({
                 />
               </div>
               <div className="min-w-0 space-y-4">
-                <p className="text-sm font-semibold leading-6 text-fuchsia-50">
+                <p className="rounded-[16px] border border-white/18 bg-slate-950/52 px-4 py-3 text-sm font-bold leading-6 text-fuchsia-50 shadow-lg shadow-slate-950/25 backdrop-blur-sm">
                   {imageCard.description}
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-center">
@@ -2572,7 +2588,7 @@ export default function PlayPage({ params }: PlayPageProps) {
   );
   const boardPlayers = useMemo(
     () =>
-      players.map((player) => ({
+      players.filter((player) => !player.eliminated).map((player) => ({
         avatarColor: player.avatarColor,
         avatarStyle: player.avatarStyle,
         cellId: player.cellId,
@@ -2927,6 +2943,16 @@ export default function PlayPage({ params }: PlayPageProps) {
                   {!canControlActivePlayer ? (
                     <p className="mt-3 rounded-[14px] bg-amber-500/12 px-3 py-2 text-xs font-semibold text-amber-100">
                       Це сидіння відкрите для перегляду.
+                    </p>
+                  ) : null}
+                  {activePlayer.eliminated ? (
+                    <p className="mt-3 rounded-[14px] border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-100">
+                      Гравець вибув з гри через борг 100 000 USD або більше.
+                    </p>
+                  ) : activePlayer.debtWarning || activePlayer.balance < -50000 ? (
+                    <p className="mt-3 rounded-[14px] border border-amber-300/40 bg-amber-500/15 px-3 py-2 text-xs font-bold text-amber-100">
+                      Борг перевищив 50 000 USD. Потрібно збільшити капітал і
+                      вийти з боргу, інакше при 100 000 USD гравець вибуває.
                     </p>
                   ) : null}
                   {privatePlayer ? (
