@@ -10,8 +10,16 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import D20Dice from '@/components/D20Dice';
 import Dice from '@/components/Dice';
 import GameLog from '@/components/GameLog';
+import PlayerAvatarToken from '@/components/PlayerAvatarToken';
 import SiteHeader from '@/components/SiteHeader';
 import { useGameRealtime } from '@/hooks/useGameRealtime';
+import {
+  avatarColorOptions,
+  avatarStyleOptions,
+  normalizeAvatarColor,
+  normalizeAvatarStyle,
+  type PlayerAvatarStyle,
+} from '@/lib/playerAvatarConfig';
 import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
 import type {
   Company,
@@ -432,6 +440,19 @@ function readErrorMessage(error: unknown) {
   return 'Невідома помилка';
 }
 
+function readAvatarSaveErrorMessage(error: unknown) {
+  const message = readErrorMessage(error);
+
+  if (
+    message.includes('update_player_avatar') &&
+    message.includes('schema cache')
+  ) {
+    return 'Функція update_player_avatar ще не застосована в Supabase. Виконай SQL з файлу supabase/sql/apply_player_avatar_customization.sql у Supabase SQL Editor, потім онови сторінку.';
+  }
+
+  return message;
+}
+
 function readPayloadValue(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
 
@@ -578,23 +599,33 @@ function SeatSwitcher({
             onClick={() => onSelect(player.id)}
             type="button"
           >
-            <span className="block truncate text-sm font-bold">
-              {player.name}
-            </span>
-            <span className="mt-1 flex flex-wrap gap-1">
-              <span className="neo-chip rounded px-1.5 py-0.5 text-[11px] font-bold">
-                Місце {player.seatNumber}
+            <span className="flex items-center gap-2">
+              <PlayerAvatarToken
+                avatarColor={player.avatarColor}
+                avatarStyle={player.avatarStyle}
+                name={player.name}
+                size="sm"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold">
+                  {player.name}
+                </span>
+                <span className="mt-1 flex flex-wrap gap-1">
+                  <span className="neo-chip rounded px-1.5 py-0.5 text-[11px] font-bold">
+                    Місце {player.seatNumber}
+                  </span>
+                  {isTurn ? (
+                    <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[11px] font-bold text-fuchsia-100 ring-1 ring-violet-300/35">
+                      Хід
+                    </span>
+                  ) : null}
+                  {isBrowserPlayer ? (
+                    <span className="rounded bg-slate-950 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                      Ви
+                    </span>
+                  ) : null}
+                </span>
               </span>
-              {isTurn ? (
-                <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[11px] font-bold text-fuchsia-100 ring-1 ring-violet-300/35">
-                  Хід
-                </span>
-              ) : null}
-              {isBrowserPlayer ? (
-                <span className="rounded bg-slate-950 px-1.5 py-0.5 text-[11px] font-bold text-white">
-                  Ви
-                </span>
-              ) : null}
             </span>
           </button>
         );
@@ -606,14 +637,37 @@ function SeatSwitcher({
 function PrivatePlayerStatsModal({
   gameState,
   onClose,
+  onAvatarUpdated,
   open,
   player,
 }: {
   gameState: GameState;
   onClose: () => void;
+  onAvatarUpdated?: () => Promise<void> | void;
   open: boolean;
   player: Player;
 }) {
+  const [avatarStyle, setAvatarStyle] = useState<PlayerAvatarStyle>(
+    normalizeAvatarStyle(player.avatarStyle),
+  );
+  const [avatarColor, setAvatarColor] = useState(
+    normalizeAvatarColor(player.avatarColor),
+  );
+  const [avatarSaveError, setAvatarSaveError] = useState<string | null>(null);
+  const [avatarSaveStatus, setAvatarSaveStatus] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setAvatarStyle(normalizeAvatarStyle(player.avatarStyle));
+    setAvatarColor(normalizeAvatarColor(player.avatarColor));
+    setAvatarSaveError(null);
+    setAvatarSaveStatus(null);
+  }, [open, player.avatarColor, player.avatarStyle, player.id]);
+
   if (!open) {
     return null;
   }
@@ -640,6 +694,35 @@ function PrivatePlayerStatsModal({
     .map((tenderId) => gameState.tenders[tenderId])
     .filter(Boolean);
   const meetingsTotal = player.successfulDeals + player.failedDeals;
+  const avatarChanged =
+    avatarStyle !== normalizeAvatarStyle(player.avatarStyle) ||
+    avatarColor !== normalizeAvatarColor(player.avatarColor);
+
+  async function handleSaveAvatar() {
+    setAvatarSaveError(null);
+    setAvatarSaveStatus(null);
+    setAvatarSaving(true);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error: saveError } = await supabase.rpc('update_player_avatar', {
+        p_game_id: gameState.gameId,
+        p_avatar_style: avatarStyle,
+        p_avatar_color: avatarColor,
+      });
+
+      if (saveError) {
+        throw saveError;
+      }
+
+      await onAvatarUpdated?.();
+      setAvatarSaveStatus('Фішку збережено');
+    } catch (caughtError) {
+      setAvatarSaveError(readAvatarSaveErrorMessage(caughtError));
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   return (
     <div
@@ -680,6 +763,145 @@ function PrivatePlayerStatsModal({
         </header>
 
         <div className="space-y-5 px-5 py-5">
+          <section className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-50 p-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-4">
+                <PlayerAvatarToken
+                  avatarColor={avatarColor}
+                  avatarStyle={avatarStyle}
+                  className="shadow-[0_0_28px_rgba(192,132,252,0.55),inset_0_0_14px_rgba(168,85,247,0.22)]"
+                  key={`${avatarStyle}-${avatarColor}-preview`}
+                  name={player.name}
+                  size="lg"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-normal text-fuchsia-200">
+                    Фішка
+                  </p>
+                  <h3 className="mt-1 text-lg font-bold tracking-normal text-slate-950">
+                    {player.name}
+                  </h3>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Обери стиль і неоновий колір своєї фішки.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                className="neo-button h-11 rounded-[16px] bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={avatarSaving || !avatarChanged}
+                onClick={() => void handleSaveAvatar()}
+                type="button"
+              >
+                {avatarSaving ? 'Зберігаємо...' : 'Зберегти'}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+              <label className="block min-w-0">
+                <span className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                  Стиль фішки
+                </span>
+                <select
+                  className="mt-2 h-11 w-full rounded-[16px] border border-violet-300/30 bg-[#12121a] px-3 text-sm font-bold text-violet-50 [color-scheme:dark]"
+                  onChange={(event) =>
+                    setAvatarStyle(normalizeAvatarStyle(event.target.value))
+                  }
+                  value={avatarStyle}
+                >
+                  {avatarStyleOptions.map((option) => (
+                    <option
+                      className="bg-[#12121a] text-violet-50"
+                      key={option.id}
+                      value={option.id}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                  Колір фішки
+                </p>
+                <div
+                  aria-label="Колір фішки"
+                  className="mt-2 flex flex-wrap gap-2"
+                  role="radiogroup"
+                >
+                  {avatarColorOptions.map((color) => {
+                    const selected = color === avatarColor;
+
+                    return (
+                      <button
+                        aria-checked={selected}
+                        aria-label={`Колір ${color}`}
+                        className={joinClassNames(
+                          'h-10 w-10 rounded-full border transition hover:scale-105',
+                          selected
+                            ? 'border-fuchsia-100 ring-2 ring-fuchsia-300 ring-offset-2 ring-offset-[#12121a]'
+                            : 'border-violet-200/50',
+                        )}
+                        key={color}
+                        onClick={() => setAvatarColor(color)}
+                        role="radio"
+                        style={{ backgroundColor: color }}
+                        type="button"
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                Живий вибір стилю
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                {avatarStyleOptions.map((option) => {
+                  const selected = option.id === avatarStyle;
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={joinClassNames(
+                        'flex min-h-24 flex-col items-center justify-center gap-2 rounded-[16px] border px-2 py-3 text-center text-xs font-bold transition',
+                        selected
+                          ? 'border-fuchsia-200 bg-violet-500/22 text-fuchsia-50 ring-2 ring-fuchsia-300/45'
+                          : 'border-violet-300/25 bg-[#12121a]/45 text-slate-300 hover:border-fuchsia-300/60 hover:bg-violet-500/12',
+                      )}
+                      key={option.id}
+                      onClick={() => setAvatarStyle(option.id)}
+                      type="button"
+                    >
+                      <PlayerAvatarToken
+                        avatarColor={avatarColor}
+                        avatarStyle={option.id}
+                        key={`${option.id}-${avatarColor}-style-option`}
+                        name={player.name}
+                        size="sm"
+                      />
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {avatarSaveStatus ? (
+              <p className="mt-3 rounded-[14px] bg-emerald-500/12 px-3 py-2 text-sm font-bold text-emerald-100">
+                {avatarSaveStatus}
+              </p>
+            ) : null}
+            {avatarSaveError ? (
+              <p className="mt-3 rounded-[14px] bg-rose-500/12 px-3 py-2 text-sm font-bold text-rose-100">
+                {avatarSaveError}
+              </p>
+            ) : null}
+          </section>
+
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
               <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
@@ -1880,14 +2102,16 @@ function PendingActionPanel({
 
   if (action.type === 'image_offer' && imageCard) {
     return (
-      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent p-[clamp(10px,4vw,40px)]">
         <section
-          className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-white/40 bg-cover bg-center p-5 text-white shadow-2xl shadow-fuchsia-950/40 ring-1 ring-white/30"
+          className="pointer-events-auto relative isolate max-h-[calc(100dvh-20px)] w-full max-w-[720px] overflow-y-auto rounded-[22px] border border-white/35 bg-[#32105d] bg-center p-[clamp(18px,4vw,36px)] text-white shadow-[0_24px_70px_rgba(2,2,8,0.58),0_0_45px_rgba(192,132,252,0.22)] ring-1 ring-white/20 sm:max-h-[calc(100dvh-48px)] lg:max-h-[calc(100dvh-80px)]"
           style={{
             backgroundImage: "url('/image-cards/image-fon.jpg')",
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: 'calc(100% + 96px) calc(100% + 96px)',
           }}
         >
-          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-slate-950/20 via-fuchsia-950/10 to-slate-950/35" />
+          <div className="absolute inset-0 rounded-[22px] bg-gradient-to-br from-slate-950/24 via-fuchsia-950/8 to-slate-950/40" />
           <div className="relative z-10 space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1959,7 +2183,7 @@ function PendingActionPanel({
                 Згоден
               </button>
               <button
-                className="h-11 rounded-md border border-white/70 bg-white/95 px-3 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-950/20 transition hover:bg-white disabled:cursor-not-allowed disabled:border-white/30 disabled:bg-white/40 disabled:text-white/70 disabled:shadow-none"
+                className="h-11 rounded-md border border-fuchsia-100/70 bg-slate-950/55 px-3 text-sm font-semibold text-fuchsia-50 shadow-lg shadow-slate-950/25 transition hover:border-white hover:bg-fuchsia-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-slate-950/25 disabled:text-slate-400 disabled:shadow-none"
                 disabled={!canAct || busy}
                 onClick={() =>
                   runRpc('resolve_image_offer', {
@@ -2349,6 +2573,8 @@ export default function PlayPage({ params }: PlayPageProps) {
   const boardPlayers = useMemo(
     () =>
       players.map((player) => ({
+        avatarColor: player.avatarColor,
+        avatarStyle: player.avatarStyle,
         cellId: player.cellId,
         id: player.id,
         name: player.name,
@@ -2744,6 +2970,7 @@ export default function PlayPage({ params }: PlayPageProps) {
         {gameState && privatePlayer ? (
           <PrivatePlayerStatsModal
             gameState={gameState}
+            onAvatarUpdated={refresh}
             onClose={() => setPrivatePlayerCardOpen(false)}
             open={privatePlayerCardOpen}
             player={privatePlayer}

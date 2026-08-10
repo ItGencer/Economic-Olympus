@@ -1,8 +1,11 @@
 import boardConfig from '@/board-config.json';
+import PlayerAvatarToken from '@/components/PlayerAvatarToken';
 import type { Cell, CellId, CellType, PlayerId, Ring } from '@/types';
 import type { ReactNode } from 'react';
 
 type BoardPlayer = {
+  avatarColor?: string;
+  avatarStyle?: string;
   id: PlayerId;
   name: string;
   cellId: CellId;
@@ -41,15 +44,6 @@ const typeStyles: Record<CellType, string> = {
   tender: 'border-teal-300/75 bg-teal-400/10 text-teal-100',
   vacation: 'border-blue-300/75 bg-blue-400/10 text-blue-100',
 };
-
-const defaultPlayerColors = [
-  '#059669',
-  '#2563eb',
-  '#dc2626',
-  '#9333ea',
-  '#d97706',
-  '#0f766e',
-];
 
 function joinClassNames(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -124,21 +118,19 @@ function CellTile({
       </span>
 
       {players.length > 0 ? (
-        <div className="mt-1 flex min-h-3 justify-center gap-0.5">
-          {players.slice(0, 4).map((player, index) => (
-            <span
-              aria-label={player.name}
-              className="h-2.5 w-2.5 rounded-full border border-violet-100 shadow-[0_0_12px_rgba(192,132,252,0.65)]"
+        <div className="mt-1 flex min-h-10 justify-center -space-x-2">
+          {players.slice(0, 4).map((player) => (
+            <PlayerAvatarToken
+              avatarColor={player.avatarColor}
+              avatarStyle={player.avatarStyle}
+              className="relative ring-2 ring-[#151522]"
               key={player.id}
-              style={{
-                backgroundColor:
-                  player.color ?? defaultPlayerColors[index % defaultPlayerColors.length],
-              }}
-              title={player.name}
+              name={player.name}
+              size="sm"
             />
           ))}
           {players.length > 4 ? (
-            <span className="text-[9px] font-bold leading-none text-slate-700">
+            <span className="grid h-10 w-10 place-items-center rounded-full border border-violet-300/40 bg-[#181824] text-[10px] font-bold leading-none text-fuchsia-100 shadow-[0_0_14px_rgba(192,132,252,0.35)]">
               +{players.length - 4}
             </span>
           ) : null}

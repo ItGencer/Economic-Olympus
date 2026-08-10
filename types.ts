@@ -196,6 +196,8 @@ export interface Player {
   seatNumber: number;
   name: string;
   isBot: boolean;
+  avatarStyle: string;
+  avatarColor: string;
   ring: Ring;
   cellId: CellId;
   balance: number;

@@ -8,6 +8,10 @@ import {
   isSupabaseConfigured,
   requireAuthenticatedUser,
 } from '@/lib/supabase';
+import {
+  normalizeAvatarColor,
+  normalizeAvatarStyle,
+} from '@/lib/playerAvatarConfig';
 import type {
   GameId,
   GameLogEntry,
@@ -114,7 +118,13 @@ function readGameState(value: unknown): GameState | null {
     return null;
   }
 
-  const players = Array.isArray(value.players) ? (value.players as Player[]) : [];
+  const players = Array.isArray(value.players)
+    ? (value.players as Player[]).map((player) => ({
+        ...player,
+        avatarColor: normalizeAvatarColor(player.avatarColor),
+        avatarStyle: normalizeAvatarStyle(player.avatarStyle),
+      }))
+    : [];
 
   if (
     typeof value.gameId !== 'string' ||

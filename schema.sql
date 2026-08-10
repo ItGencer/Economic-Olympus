@@ -46,6 +46,12 @@ create table if not exists public.players (
   seat_number integer not null check (seat_number between 1 and 6),
   display_name text not null default 'Гравець',
   is_bot boolean not null default false,
+  avatar_style text not null default 'adventurer' check (
+    avatar_style in ('adventurer', 'bottts', 'pixel-art', 'identicon', 'thumbs', 'shapes')
+  ),
+  avatar_color text not null default '#7c3aed' check (
+    avatar_color ~ '^#[0-9A-Fa-f]{6}$'
+  ),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint players_user_or_bot_check check (

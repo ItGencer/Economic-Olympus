@@ -54,6 +54,8 @@ as $$
         'seatNumber', p.seat_number,
         'name', p.display_name,
         'isBot', p.is_bot,
+        'avatarStyle', p.avatar_style,
+        'avatarColor', p.avatar_color,
         'ring', 'inner',
         'cellId', 'inner-start-01',
         'balance', 10000,

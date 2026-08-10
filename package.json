@@ -10,6 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dicebear/adventurer": "^9.4.2",
+    "@dicebear/bottts": "^9.4.2",
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
+    "@dicebear/identicon": "^9.4.2",
+    "@dicebear/pixel-art": "^9.4.2",
+    "@dicebear/shapes": "^9.4.2",
+    "@dicebear/thumbs": "^9.4.2",
     "@supabase/supabase-js": "2.45.4",
     "next": "14.2.5",
     "react": "18.3.1",
