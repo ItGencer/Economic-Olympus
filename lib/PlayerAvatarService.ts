@@ -21,6 +21,16 @@ type AvatarOptions = {
   size: number;
 };
 
+function scopeSvgIds(svg: string, scope: string) {
+  const safeScope = scope.replace(/[^a-zA-Z0-9_-]/g, '-');
+
+  return svg.replace(
+    /(id="|url\(#|href="#|xlink:href="#)([a-zA-Z0-9_-]+)(["\)])/g,
+    (_match, prefix: string, id: string, suffix: string) =>
+      `${prefix}${safeScope}-${id}${suffix}`,
+  );
+}
+
 const avatarScaleByStyle: Record<PlayerAvatarStyle, number> = {
   adventurer: 112,
   bottts: 116,
@@ -56,17 +66,20 @@ export class PlayerAvatarService {
     style: string,
     seed: string,
     backgroundColor: string,
+    idScope?: string,
   ): string {
     const avatarStyle = normalizeAvatarStyle(style);
     const avatarSeed = seed.trim() || 'Economic Olympus';
     const avatarColor = normalizeAvatarColor(backgroundColor);
-    return createAvatarSvgForStyle(avatarStyle, {
+    const svg = createAvatarSvgForStyle(avatarStyle, {
       backgroundColor: [toDiceBearBackgroundColor(avatarColor)],
       radius: 50,
       scale: avatarScaleByStyle[avatarStyle],
       seed: `${avatarSeed}-${avatarStyle}`,
       size: 96,
     });
+
+    return idScope ? scopeSvgIds(svg, idScope) : svg;
   }
 }
 

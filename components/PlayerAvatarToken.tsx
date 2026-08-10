@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 
 import { PlayerAvatarService } from '@/lib/PlayerAvatarService';
 import {
@@ -51,6 +51,7 @@ export function PlayerAvatarToken({
   name,
   size = 'md',
 }: PlayerAvatarTokenProps) {
+  const idScope = useId();
   const safeAvatarStyle = normalizeAvatarStyle(avatarStyle);
   const safeAvatarColor = normalizeAvatarColor(avatarColor);
   const svg = useMemo(
@@ -59,8 +60,9 @@ export function PlayerAvatarToken({
         safeAvatarStyle,
         name,
         safeAvatarColor,
+        idScope,
       ),
-    [safeAvatarColor, safeAvatarStyle, name],
+    [idScope, safeAvatarColor, safeAvatarStyle, name],
   );
 
   return (
