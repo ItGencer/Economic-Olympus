@@ -31,10 +31,13 @@
   {
     "id": "inner-vacation-04",
     "ring": "inner",
-    "type": "vacation",
+    "type": "image",
     "params": {
-      "label": "Відпустка",
-      "skipTurns": 1
+      "label": "Імідж",
+      "priceMin": 100,
+      "priceMax": 3000,
+      "imageMin": 1,
+      "imageMax": 10
     }
   },
   {
@@ -63,13 +66,13 @@
   {
     "id": "inner-negative-reputation-07",
     "ring": "inner",
-    "type": "negative_reputation",
+    "type": "image",
     "params": {
-      "label": "Негативна репутація",
-      "dieMin": 1,
-      "dieMax": 6,
-      "multiplierMin": 1,
-      "multiplierMax": 5
+      "label": "Імідж",
+      "priceMin": 100,
+      "priceMax": 3000,
+      "imageMin": 1,
+      "imageMax": 10
     }
   },
   {

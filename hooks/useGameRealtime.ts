@@ -189,6 +189,13 @@ function buildFallbackState(row: GameRow): GameState {
 
 function readStateFromRow(row: GameRow): GameState {
   const state = readGameState(row.state) ?? buildFallbackState(row);
+  const rowUpdatedAt = Date.parse(row.updated_at);
+  const stateUpdatedAt = Date.parse(state.updatedAt);
+  const updatedAt =
+    !Number.isNaN(stateUpdatedAt) &&
+    (Number.isNaN(rowUpdatedAt) || stateUpdatedAt >= rowUpdatedAt)
+      ? state.updatedAt
+      : row.updated_at;
 
   return {
     ...state,
@@ -197,7 +204,7 @@ function readStateFromRow(row: GameRow): GameState {
     joinCode: row.join_code,
     maxPlayers: row.max_players,
     status: row.status,
-    updatedAt: row.updated_at,
+    updatedAt,
     winnerPlayerId: row.winner_player_id,
   };
 }

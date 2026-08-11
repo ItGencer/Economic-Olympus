@@ -335,6 +335,7 @@ const pendingActionLabels: Record<PendingAction['type'], string> = {
   negative_reputation: 'Негативна репутація',
   outer_ring_choice: 'Перехід кола',
   random_event: 'Random',
+  salary: 'Зарплата',
   tender_purchase: 'Тендер',
 };
 
@@ -631,6 +632,22 @@ function buildOptimisticPlayerSnapshot(
       balance,
       debtLocked: balance < 0,
       image: player.image + imageGain,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  if (
+    rpcName === 'resolve_salary' &&
+    action.type === 'salary' &&
+    args.p_decision === 'confirm'
+  ) {
+    const balanceDelta = readPayloadNumber(action.payload, 'balanceDelta');
+    const balance = player.balance + balanceDelta;
+
+    return {
+      ...player,
+      balance,
+      debtLocked: balance < 0,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -1361,6 +1378,44 @@ function PendingActionPanel({
     reputationPhase === 'roll_ready' ||
     reputationPhase === 'dice_rolled' ||
     reputationPhase === 'multiplier_ready';
+  const salaryPhase = readPayloadString(action.payload, 'phase', 'initial');
+  const salaryDie = readPayloadNumber(action.payload, 'die');
+  const salaryImage = readPayloadNumber(
+    action.payload,
+    'image',
+    activePlayer?.image ?? 0,
+  );
+  const salaryKind = readPayloadString(
+    action.payload,
+    'kind',
+    salaryImage > 0 ? 'bonus' : salaryImage < 0 ? 'fine' : 'neutral',
+  );
+  const salaryUnit = readPayloadNumber(
+    action.payload,
+    'unit',
+    salaryImage > 0 ? 1000 : salaryImage < 0 ? 100 : 0,
+  );
+  const salaryAmount = readPayloadNumber(
+    action.payload,
+    'amount',
+    salaryDie * salaryUnit,
+  );
+  const salaryBalanceDelta = readPayloadNumber(
+    action.payload,
+    'balanceDelta',
+    salaryKind === 'bonus' ? salaryAmount : salaryKind === 'fine' ? -salaryAmount : 0,
+  );
+  const salaryBalanceBefore = readPayloadNumber(
+    action.payload,
+    'balanceBefore',
+    activePlayer?.balance ?? 0,
+  );
+  const salaryBalanceAfter = readPayloadNumber(
+    action.payload,
+    'balanceAfter',
+    salaryBalanceBefore + salaryBalanceDelta,
+  );
+  const salaryReadyToConfirm = salaryPhase === 'roll_ready';
   const companyName = readPayloadString(action.payload, 'name', 'Компанія');
   const companyTotalShares = Math.max(
     1,
@@ -1546,6 +1601,162 @@ function PendingActionPanel({
                 <p
                   aria-live="polite"
                   className="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
+                >
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (action.type === 'salary') {
+    const salaryIsBonus = salaryKind === 'bonus';
+    const salaryIsFine = salaryKind === 'fine';
+
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
+        <section className="salary-readable pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[600px] overflow-y-auto rounded-[20px] border border-emerald-100/55 bg-slate-950 text-white shadow-2xl shadow-emerald-950/35 ring-1 ring-white/25">
+          <div
+            className={joinClassNames(
+              'absolute inset-0',
+              salaryIsFine
+                ? 'bg-[radial-gradient(circle_at_top,_rgba(244,63,94,0.35),_transparent_36%),linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(76,5,25,0.9))]'
+                : 'bg-[radial-gradient(circle_at_top,_rgba(52,211,153,0.35),_transparent_36%),linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(6,78,59,0.9))]',
+            )}
+          />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-300 via-violet-400 to-rose-400" />
+
+          <div className="relative z-10 space-y-5 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-normal text-emerald-100">
+                  Картка доходу
+                </p>
+                <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
+                  Зарплата
+                </h2>
+              </div>
+              <span className="shrink-0 rounded bg-white/95 px-2 py-1 text-xs font-bold text-slate-800 shadow-sm">
+                {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+              </span>
+            </div>
+
+            <div className="rounded-[18px] border border-white/15 bg-slate-950/72 p-4 shadow-2xl shadow-slate-950/35 backdrop-blur-sm">
+              <div className="grid gap-4 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                <D20Dice
+                  className="shadow-emerald-950/30 ring-emerald-100/70"
+                  rolling={busy && canAct && !salaryReadyToConfirm}
+                  value={salaryDie || null}
+                />
+
+                <div className="min-w-0 space-y-3">
+                  <h3 className="text-xl font-bold tracking-normal text-white">
+                    {salaryIsFine
+                      ? 'Імідж нижче нуля: можливий штраф'
+                      : salaryIsBonus
+                        ? 'Позитивний імідж: можлива премія'
+                        : 'Імідж нульовий: виплати немає'}
+                  </h3>
+                  <p className="rounded-md border border-white/20 bg-slate-950/80 px-3 py-2 text-sm font-semibold leading-6 text-slate-100 shadow-inner shadow-slate-950/40">
+                    Киньте d20. Якщо імідж позитивний, результат кубика множиться
+                    на 1000 USD і додається до балансу. Якщо імідж від’ємний,
+                    результат множиться на 100 USD і списується як штраф.
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Імідж
+                      </p>
+                      <p
+                        className={joinClassNames(
+                          'mt-1 text-lg font-black',
+                          salaryImage < 0 ? 'text-rose-700' : 'text-emerald-700',
+                        )}
+                      >
+                        {formatInteger(salaryImage)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        d20
+                      </p>
+                      <p className="mt-1 text-lg font-black text-violet-700">
+                        {salaryDie || '?'}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
+                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                        Формула
+                      </p>
+                      <p className="mt-1 text-lg font-black">
+                        x{formatInteger(salaryUnit)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {salaryReadyToConfirm ? (
+                <div className="mt-4 grid gap-2 text-center sm:grid-cols-2">
+                  <div
+                    className={joinClassNames(
+                      'rounded-md px-3 py-3 shadow-sm',
+                      salaryBalanceDelta >= 0
+                        ? 'bg-emerald-50 text-emerald-800'
+                        : 'bg-rose-50 text-rose-800',
+                    )}
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-normal">
+                      Результат
+                    </p>
+                    <p className="mt-1 text-lg font-black">
+                      {salaryBalanceDelta > 0 ? '+' : ''}
+                      {formatMoney(salaryBalanceDelta)}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
+                      Баланс після
+                    </p>
+                    <p
+                      className={joinClassNames(
+                        'mt-1 text-lg font-black',
+                        salaryBalanceAfter < 0 ? 'text-rose-700' : 'text-emerald-700',
+                      )}
+                    >
+                      {formatMoney(salaryBalanceAfter)}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              <button
+                className={joinClassNames(
+                  'mt-5 h-11 w-full rounded-md px-3 text-sm font-semibold text-white shadow-lg transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none',
+                  salaryIsFine
+                    ? 'bg-rose-600 shadow-rose-950/25 hover:bg-rose-700'
+                    : 'bg-emerald-600 shadow-emerald-950/25 hover:bg-emerald-700',
+                )}
+                disabled={!canAct || busy}
+                onClick={() =>
+                  runRpc('resolve_salary', {
+                    p_decision: salaryReadyToConfirm ? 'confirm' : 'roll',
+                    p_game_id: gameState.gameId,
+                  })
+                }
+                type="button"
+              >
+                {salaryReadyToConfirm ? 'Далі' : busy ? 'Кидаємо...' : 'Кинути d20'}
+              </button>
+
+              {error ? (
+                <p
+                  aria-live="polite"
+                  className="mt-4 rounded-md bg-white/95 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm"
                 >
                   {error}
                 </p>
@@ -2980,7 +3191,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                       disabled={diceDisabled}
                       gameId={gameState.gameId}
                       isCurrentPlayerTurn={isActivePlayerTurn}
-                      onRolled={refresh}
+                      onRolled={handleActionResolved}
                       playerId={privatePlayer?.id ?? null}
                     />
 
@@ -3006,7 +3217,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                 disabled={diceDisabled}
                 gameId={gameState.gameId}
                 isCurrentPlayerTurn={isActivePlayerTurn}
-                onRolled={refresh}
+                onRolled={handleActionResolved}
                 playerId={privatePlayer?.id ?? null}
               />
 

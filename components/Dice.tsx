@@ -29,7 +29,7 @@ type DiceProps = {
   disabled?: boolean;
   gameId: GameId | null;
   isCurrentPlayerTurn?: boolean;
-  onRolled?: (state: GameState) => Promise<void> | void;
+  onRolled?: (state?: GameState) => Promise<void> | void;
   playerId?: PlayerId | null;
 };
 
@@ -172,7 +172,20 @@ export function Dice({
 
       await onRolled?.(data.state);
     } catch (caughtError) {
-      setError(readErrorMessage(caughtError));
+      const message = readErrorMessage(caughtError);
+
+      setError(
+        message === 'not_your_turn'
+          ? 'Хід вже перейшов іншому гравцю. Оновлюємо стан...'
+          : message,
+      );
+
+      if (
+        message === 'not_your_turn' ||
+        message === 'pending_action_must_be_resolved'
+      ) {
+        await onRolled?.();
+      }
     } finally {
       setBusy(false);
     }

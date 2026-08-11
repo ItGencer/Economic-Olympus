@@ -212,7 +212,12 @@ a {
 .neo-theme .negative-readable .text-slate-900,
 .neo-theme .negative-readable .text-slate-800,
 .neo-theme .negative-readable button.text-slate-950,
-.neo-theme .negative-readable button.text-slate-800 {
+.neo-theme .negative-readable button.text-slate-800,
+.neo-theme .salary-readable .text-slate-950,
+.neo-theme .salary-readable .text-slate-900,
+.neo-theme .salary-readable .text-slate-800,
+.neo-theme .salary-readable button.text-slate-950,
+.neo-theme .salary-readable button.text-slate-800 {
   color: #111827 !important;
 }
 
@@ -227,7 +232,10 @@ a {
 .neo-theme .image-readable .text-slate-500,
 .neo-theme .negative-readable .text-slate-700,
 .neo-theme .negative-readable .text-slate-600,
-.neo-theme .negative-readable .text-slate-500 {
+.neo-theme .negative-readable .text-slate-500,
+.neo-theme .salary-readable .text-slate-700,
+.neo-theme .salary-readable .text-slate-600,
+.neo-theme .salary-readable .text-slate-500 {
   color: #475569 !important;
 }
 
@@ -242,7 +250,9 @@ a {
 .neo-theme .deal-readable .text-emerald-700,
 .neo-theme .deal-readable .text-emerald-800,
 .neo-theme .image-readable .text-emerald-700,
-.neo-theme .image-readable .text-emerald-800 {
+.neo-theme .image-readable .text-emerald-800,
+.neo-theme .salary-readable .text-emerald-700,
+.neo-theme .salary-readable .text-emerald-800 {
   color: #047857 !important;
 }
 
@@ -254,13 +264,17 @@ a {
 .neo-theme .image-readable .text-rose-800,
 .neo-theme .negative-readable .text-rose-700,
 .neo-theme .negative-readable .text-rose-800,
-.neo-theme .negative-readable .text-rose-900 {
+.neo-theme .negative-readable .text-rose-900,
+.neo-theme .salary-readable .text-rose-700,
+.neo-theme .salary-readable .text-rose-800,
+.neo-theme .salary-readable .text-rose-900 {
   color: #be123c !important;
 }
 
 .neo-theme .casino-readable input,
 .neo-theme .deal-readable input,
-.neo-theme .image-readable input {
+.neo-theme .image-readable input,
+.neo-theme .salary-readable input {
   background: rgba(255, 250, 240, 0.96) !important;
   border-color: rgba(251, 191, 36, 0.5) !important;
   color: #111827 !important;
@@ -271,14 +285,16 @@ a {
 
 .neo-theme .casino-readable input::placeholder,
 .neo-theme .deal-readable input::placeholder,
-.neo-theme .image-readable input::placeholder {
+.neo-theme .image-readable input::placeholder,
+.neo-theme .salary-readable input::placeholder {
   color: rgba(71, 85, 105, 0.72);
 }
 
 .neo-theme .casino-readable button:disabled,
 .neo-theme .deal-readable button:disabled,
 .neo-theme .image-readable button:disabled,
-.neo-theme .negative-readable button:disabled {
+.neo-theme .negative-readable button:disabled,
+.neo-theme .salary-readable button:disabled {
   color: rgba(17, 24, 39, 0.76) !important;
 }
 
