@@ -77,6 +77,7 @@ export type UseGameRealtimeResult = {
   loading: boolean;
   players: Player[];
   realtimeStatus: GameRealtimeStatus;
+  applyStateSnapshot: (snapshot: unknown) => void;
   refresh: () => Promise<void>;
   refreshing: boolean;
 };
@@ -218,6 +219,39 @@ function readLogTimestamp(entry: GameLogEntry) {
   const timestamp = Date.parse(entry.createdAt);
 
   return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function readStateTimestamp(state: GameState | null) {
+  if (!state) {
+    return 0;
+  }
+
+  const updatedAt = Date.parse(state.updatedAt);
+
+  if (!Number.isNaN(updatedAt)) {
+    return updatedAt;
+  }
+
+  const createdAt = Date.parse(state.createdAt);
+
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
+function mergeFreshGameState(
+  currentState: GameState | null,
+  nextState: GameState,
+) {
+  if (
+    currentState?.gameId === nextState.gameId &&
+    readStateTimestamp(nextState) < readStateTimestamp(currentState)
+  ) {
+    return {
+      ...currentState,
+      log: nextState.log.length > 0 ? nextState.log : currentState.log,
+    };
+  }
+
+  return nextState;
 }
 
 function mergeLogEntry(entries: GameLogEntry[], incoming: GameLogEntry) {
@@ -364,10 +398,10 @@ export function useGameRealtime({
           .map(readGameLogEntry)
           .reverse();
 
-        setGameState({
+        setGameState((currentState) => mergeFreshGameState(currentState, {
           ...nextState,
           log,
-        });
+        }));
         setLastSyncedAt(new Date().toISOString());
         setResolvedGameId(nextState.gameId);
       } catch (caughtError) {
@@ -445,13 +479,15 @@ export function useGameRealtime({
         (payload) => {
           const nextState = readStateFromRow(payload.new as GameRow);
 
-          setGameState((currentState) => ({
-            ...nextState,
-            log:
-              currentState?.gameId === nextState.gameId
-                ? currentState.log
-                : nextState.log,
-          }));
+          setGameState((currentState) =>
+            mergeFreshGameState(currentState, {
+              ...nextState,
+              log:
+                currentState?.gameId === nextState.gameId
+                  ? currentState.log
+                  : nextState.log,
+            }),
+          );
           setLastSyncedAt(new Date().toISOString());
         },
       )
@@ -519,12 +555,34 @@ export function useGameRealtime({
       null,
     [gameState?.currentTurnPlayerId, players],
   );
+  const applyStateSnapshot = useCallback((snapshot: unknown) => {
+    const nextState = readGameState(snapshot);
+
+    if (!nextState) {
+      return;
+    }
+
+    requestIdRef.current += 1;
+
+    setGameState((currentState) =>
+      mergeFreshGameState(currentState, {
+        ...nextState,
+        log:
+          currentState?.gameId === nextState.gameId
+            ? currentState.log
+            : nextState.log,
+      }),
+    );
+    setLastSyncedAt(new Date().toISOString());
+    setResolvedGameId(nextState.gameId);
+  }, []);
   const refresh = useCallback(
     () => loadGameState({ silent: true }),
     [loadGameState],
   );
 
   return {
+    applyStateSnapshot,
     currentPlayer,
     currentPlayerId,
     currentTurnPlayer,

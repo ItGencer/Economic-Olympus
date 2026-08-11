@@ -207,7 +207,12 @@ a {
 .neo-theme .image-readable .text-slate-900,
 .neo-theme .image-readable .text-slate-800,
 .neo-theme .image-readable button.text-slate-950,
-.neo-theme .image-readable button.text-slate-800 {
+.neo-theme .image-readable button.text-slate-800,
+.neo-theme .negative-readable .text-slate-950,
+.neo-theme .negative-readable .text-slate-900,
+.neo-theme .negative-readable .text-slate-800,
+.neo-theme .negative-readable button.text-slate-950,
+.neo-theme .negative-readable button.text-slate-800 {
   color: #111827 !important;
 }
 
@@ -219,7 +224,10 @@ a {
 .neo-theme .deal-readable .text-slate-500,
 .neo-theme .image-readable .text-slate-700,
 .neo-theme .image-readable .text-slate-600,
-.neo-theme .image-readable .text-slate-500 {
+.neo-theme .image-readable .text-slate-500,
+.neo-theme .negative-readable .text-slate-700,
+.neo-theme .negative-readable .text-slate-600,
+.neo-theme .negative-readable .text-slate-500 {
   color: #475569 !important;
 }
 
@@ -243,7 +251,10 @@ a {
 .neo-theme .deal-readable .text-rose-700,
 .neo-theme .deal-readable .text-rose-800,
 .neo-theme .image-readable .text-rose-700,
-.neo-theme .image-readable .text-rose-800 {
+.neo-theme .image-readable .text-rose-800,
+.neo-theme .negative-readable .text-rose-700,
+.neo-theme .negative-readable .text-rose-800,
+.neo-theme .negative-readable .text-rose-900 {
   color: #be123c !important;
 }
 
@@ -266,7 +277,8 @@ a {
 
 .neo-theme .casino-readable button:disabled,
 .neo-theme .deal-readable button:disabled,
-.neo-theme .image-readable button:disabled {
+.neo-theme .image-readable button:disabled,
+.neo-theme .negative-readable button:disabled {
   color: rgba(17, 24, 39, 0.76) !important;
 }
 

@@ -48,6 +48,10 @@ type CompanyCatalogItem = {
 
 const COMPANY_SHARE_POOL = 2000;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 const companyCatalog: CompanyCatalogItem[] = [
   {
     id: 'company-logistics',
@@ -521,6 +525,118 @@ function readPayloadNumberArray(payload: Record<string, unknown>, key: string) {
   );
 }
 
+function parseRpcJson(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function readRpcStateSnapshot(value: unknown): unknown {
+  const parsedValue = parseRpcJson(value);
+
+  if (Array.isArray(parsedValue)) {
+    return readRpcStateSnapshot(parsedValue[0]);
+  }
+
+  if (isRecord(parsedValue)) {
+    if ('state' in parsedValue) {
+      return parseRpcJson(parsedValue.state);
+    }
+
+    if (Array.isArray(parsedValue.players)) {
+      return parsedValue;
+    }
+  }
+
+  return undefined;
+}
+
+function readPlayerFromStateSnapshot(
+  snapshot: unknown,
+  playerId: PlayerId | null | undefined,
+) {
+  if (!playerId) {
+    return null;
+  }
+
+  const stateSnapshot = readRpcStateSnapshot(snapshot) ?? snapshot;
+
+  if (!isRecord(stateSnapshot) || !Array.isArray(stateSnapshot.players)) {
+    return null;
+  }
+
+  return (
+    (stateSnapshot.players as Player[]).find((player) => player.id === playerId) ??
+    null
+  );
+}
+
+function readPlayerTimestamp(player: Player | null | undefined) {
+  if (!player) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(player.updatedAt);
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function haveSamePlayerStats(left: Player, right: Player) {
+  return (
+    left.balance === right.balance &&
+    left.image === right.image &&
+    left.inventory === right.inventory &&
+    left.successfulDeals === right.successfulDeals &&
+    left.failedDeals === right.failedDeals &&
+    left.debtLocked === right.debtLocked &&
+    Boolean(left.debtWarning) === Boolean(right.debtWarning) &&
+    Boolean(left.eliminated) === Boolean(right.eliminated) &&
+    left.skipTurns === right.skipTurns &&
+    left.cellId === right.cellId &&
+    left.ring === right.ring &&
+    JSON.stringify(left.shares) === JSON.stringify(right.shares) &&
+    JSON.stringify(left.tenderIds) === JSON.stringify(right.tenderIds) &&
+    JSON.stringify(left.directorIds) === JSON.stringify(right.directorIds)
+  );
+}
+
+function buildOptimisticPlayerSnapshot(
+  rpcName: string,
+  args: RpcArgs,
+  action: PendingAction | null,
+  player: Player | null,
+) {
+  if (!action || !player) {
+    return null;
+  }
+
+  if (
+    rpcName === 'resolve_image_offer' &&
+    action.type === 'image_offer' &&
+    args.p_decision === 'accept'
+  ) {
+    const price = readPayloadNumber(action.payload, 'price');
+    const imageGain = readPayloadNumber(action.payload, 'imageGain');
+    const balance = player.balance - price;
+
+    return {
+      ...player,
+      balance,
+      debtLocked: balance < 0,
+      image: player.image + imageGain,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  return null;
+}
+
 function hashString(value: string) {
   let hash = 2166136261;
 
@@ -567,39 +683,34 @@ function buildActionDetails(action: PendingAction) {
 }
 
 function SeatSwitcher({
-  activePlayerId,
   browserPlayerId,
   currentTurnPlayerId,
-  onSelect,
   players,
 }: {
-  activePlayerId: PlayerId | null;
   browserPlayerId: PlayerId | null;
   currentTurnPlayerId: PlayerId | null;
-  onSelect: (playerId: PlayerId) => void;
   players: Player[];
 }) {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1">
       {players.map((player) => {
-        const isActive = player.id === activePlayerId;
         const isTurn = player.id === currentTurnPlayerId;
         const isBrowserPlayer = player.id === browserPlayerId;
         const isEliminated = Boolean(player.eliminated);
 
         return (
-          <button
-            aria-pressed={isActive}
+          <div
+            aria-current={isTurn ? 'true' : undefined}
             className={joinClassNames(
-              'neo-button min-w-36 rounded-[16px] border px-3 py-2 text-left transition',
+              'min-w-36 rounded-[16px] border px-3 py-2 text-left transition',
               isEliminated ? 'opacity-60' : undefined,
-              isActive
+              isTurn
                 ? 'border-violet-300 bg-violet-500/20 text-violet-50 ring-2 ring-violet-400/35'
-                : 'border-violet-300/20 bg-[#181824]/70 text-slate-300 hover:border-fuchsia-300/60 hover:bg-violet-500/10',
+                : isBrowserPlayer
+                  ? 'border-violet-300/45 bg-[#181824]/80 text-slate-100 ring-1 ring-violet-300/20'
+                  : 'border-violet-300/20 bg-[#181824]/70 text-slate-300',
             )}
             key={player.id}
-            onClick={() => onSelect(player.id)}
-            type="button"
           >
             <span className="flex items-center gap-2">
               <PlayerAvatarToken
@@ -634,7 +745,7 @@ function SeatSwitcher({
                 </span>
               </span>
             </span>
-          </button>
+          </div>
         );
       })}
     </div>
@@ -1039,7 +1150,10 @@ function PendingActionPanel({
   activePlayer: Player | null;
   controllablePlayerId: PlayerId | null;
   gameState: GameState;
-  onResolved: () => Promise<void>;
+  onResolved: (
+    stateSnapshot?: unknown,
+    playerSnapshot?: Player | null,
+  ) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1069,20 +1183,23 @@ function PendingActionPanel({
         await requireAuthenticatedUser();
 
         const supabase = getSupabaseClient();
-        const { error: rpcError } = await supabase.rpc(rpcName, args);
+        const { data, error: rpcError } = await supabase.rpc(rpcName, args);
 
         if (rpcError) {
           throw rpcError;
         }
 
-        await onResolved();
+        await onResolved(
+          readRpcStateSnapshot(data),
+          buildOptimisticPlayerSnapshot(rpcName, args, action, activePlayer),
+        );
       } catch (caughtError) {
         setError(readErrorMessage(caughtError));
       } finally {
         setBusy(false);
       }
     },
-    [onResolved],
+    [action, activePlayer, onResolved],
   );
 
   useEffect(() => {
@@ -1144,17 +1261,10 @@ function PendingActionPanel({
     activePlayer && activePlayer.balance >= imagePrice,
   );
   const casinoBalance = Math.floor(activePlayer?.balance ?? 0);
-  const casinoDefaultMaxStake = casinoBalance > 0 ? casinoBalance : 1000;
-  const casinoMaxStake = Math.max(
-    0,
-    readPayloadNumber(action.payload, 'maxStake', casinoDefaultMaxStake),
-  );
   const casinoBetAmount = Number(casinoBetInput);
   const isCasinoBetValid =
-    casinoMaxStake > 0 &&
     Number.isInteger(casinoBetAmount) &&
-    casinoBetAmount >= 0 &&
-    casinoBetAmount <= casinoMaxStake;
+    casinoBetAmount >= 0;
   const canSubmitCasinoBet = Boolean(canAct && !busy && isCasinoBetValid);
   const casinoPhase = readPayloadString(action.payload, 'phase', 'initial');
   const casinoDice = readPayloadNumberArray(action.payload, 'dice');
@@ -1206,8 +1316,7 @@ function PendingActionPanel({
   );
   const reputationPhase = readPayloadString(action.payload, 'phase', 'initial');
   const reputationDie = readPayloadNumber(action.payload, 'die');
-  const reputationMultiplier = readPayloadNumber(action.payload, 'multiplier');
-  const reputationImageLoss = readPayloadNumber(action.payload, 'imageLoss');
+  const reputationImageLoss = reputationDie;
   const reputationImageBefore = readPayloadNumber(
     action.payload,
     'imageBefore',
@@ -1218,8 +1327,11 @@ function PendingActionPanel({
     'imageAfter',
     reputationImageBefore - reputationImageLoss,
   );
-  const reputationCanStart =
-    reputationPhase === 'initial' || reputationPhase === 'dice_rolled';
+  const reputationCanStart = reputationPhase === 'initial';
+  const reputationReadyToConfirm =
+    reputationPhase === 'roll_ready' ||
+    reputationPhase === 'dice_rolled' ||
+    reputationPhase === 'multiplier_ready';
   const companyName = readPayloadString(action.payload, 'name', 'Компанія');
   const companyTotalShares = Math.max(
     1,
@@ -1419,7 +1531,7 @@ function PendingActionPanel({
   if (action.type === 'negative_reputation') {
     return (
       <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-transparent px-4 py-6">
-        <section className="pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-rose-200/70 bg-slate-950 text-white shadow-2xl shadow-rose-950/45 ring-1 ring-white/25">
+        <section className="negative-readable pointer-events-auto relative max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-md border border-rose-200/70 bg-slate-950 text-white shadow-2xl shadow-rose-950/45 ring-1 ring-white/25">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,63,94,0.35),_transparent_34%),linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(127,29,29,0.9))]" />
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rose-500 via-red-300 to-slate-700" />
 
@@ -1446,64 +1558,33 @@ function PendingActionPanel({
                 />
 
                 <div className="min-w-0 space-y-3">
-                  <p className="text-sm font-semibold leading-6 text-rose-50">
-                    Кидок d6 визначає базовий удар, а коефіцієнт x1-x5 множить
-                    його перед списанням іміджу.
+                  <p className="rounded-md border border-rose-200/25 bg-slate-950/80 px-3 py-2 text-sm font-semibold leading-6 text-rose-50 shadow-inner shadow-slate-950/40">
+                    Киньте d6. Скільки випаде на кубику, стільки іміджу
+                    гравець втрачає.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
                       <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
                         Імідж
                       </p>
-                      <p className="mt-1 text-base font-bold">
+                      <p className="mt-1 text-lg font-black">
                         {formatInteger(reputationImageBefore)}
                       </p>
                     </div>
-                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
+                    <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
                       <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
                         d6
                       </p>
-                      <p className="mt-1 text-base font-bold text-rose-700">
+                      <p className="mt-1 text-lg font-black text-rose-700">
                         {reputationDie || '?'}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-white/95 px-3 py-2 text-slate-950">
-                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                        Коеф.
-                      </p>
-                      <p className="mt-1 text-base font-bold text-rose-700">
-                        {reputationMultiplier ? `x${reputationMultiplier}` : 'x?'}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-md bg-slate-950/70 px-3 py-3">
-                <p className="text-center text-xs font-bold uppercase tracking-normal text-rose-200">
-                  Шкала коефіцієнтів
-                </p>
-                <div className="mt-2 grid grid-cols-5 gap-2 text-center text-sm font-black text-slate-950">
-                  {[1, 2, 3, 4, 5].map((multiplier) => (
-                    <span
-                      className={joinClassNames(
-                        'rounded px-2 py-3 transition',
-                        reputationMultiplier === multiplier
-                          ? 'bg-rose-400 text-white ring-2 ring-white'
-                          : busy && reputationPhase === 'dice_rolled'
-                            ? 'animate-pulse bg-rose-200'
-                            : 'bg-white/85',
-                      )}
-                      key={multiplier}
-                    >
-                      x{multiplier}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {reputationPhase === 'multiplier_ready' ? (
+              {reputationReadyToConfirm ? (
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-md bg-rose-50 px-3 py-2 text-rose-800 shadow-sm">
                     <p className="text-[11px] font-bold uppercase tracking-normal">
@@ -1530,7 +1611,7 @@ function PendingActionPanel({
               ) : null}
 
               <div className="mt-5">
-                {reputationPhase === 'multiplier_ready' ? (
+                {reputationReadyToConfirm ? (
                   <button
                     className="h-11 w-full rounded-md bg-rose-600 px-3 text-sm font-semibold text-white shadow-lg shadow-rose-950/25 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     disabled={!canAct || busy}
@@ -1550,8 +1631,7 @@ function PendingActionPanel({
                     disabled={!canAct || busy || !reputationCanStart}
                     onClick={() =>
                       runRpc('resolve_negative_reputation', {
-                        p_decision:
-                          reputationPhase === 'initial' ? 'roll' : 'multiplier',
+                        p_decision: 'roll',
                         p_game_id: gameState.gameId,
                       })
                     }
@@ -1838,21 +1918,15 @@ function PendingActionPanel({
                       </p>
                     </div>
                   </div>
-                  {casinoMaxStake <= 0 ? (
-                    <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
-                      Недостатньо коштів для ставки.
-                    </p>
-                  ) : null}
-                  {casinoBalance < 0 && casinoMaxStake > 0 ? (
+                  {casinoBalance < 0 ? (
                     <p className="rounded-md bg-amber-100/95 px-3 py-2 text-center text-xs font-bold text-amber-900">
-                      Казино дозволяє ставку в кредит до {formatMoney(casinoMaxStake)}.
-                      Програш збільшить борг.
+                      Казино без ліміту: ставка може збільшити борг у разі програшу.
                     </p>
                   ) : null}
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       className="h-11 rounded-md bg-amber-500 px-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-950/20 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300"
-                      disabled={!canAct || busy || casinoMaxStake <= 0}
+                      disabled={!canAct || busy}
                       onClick={() => setCasinoStep('bet')}
                       type="button"
                     >
@@ -1884,8 +1958,7 @@ function PendingActionPanel({
                       Ставка та прогноз
                     </h3>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">
-                      Оберіть суму до {formatMoney(casinoMaxStake)} і вгадайте,
-                      парною чи непарною буде сума двох кубиків.
+                      Оберіть будь-яку суму і вгадайте, парною чи непарною буде сума двох кубиків.
                     </p>
                   </div>
 
@@ -1896,7 +1969,6 @@ function PendingActionPanel({
                     <input
                       className="mt-2 h-11 w-full rounded-md border border-white/30 bg-white/95 px-3 text-sm font-bold text-slate-950 outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-200/40"
                       inputMode="numeric"
-                      max={casinoMaxStake}
                       min={0}
                       onChange={(event) => setCasinoBetInput(event.target.value)}
                       type="number"
@@ -1926,7 +1998,7 @@ function PendingActionPanel({
 
                   {!isCasinoBetValid ? (
                     <p className="rounded-md bg-white/95 px-3 py-2 text-center text-xs font-bold text-rose-700">
-                      Ставка має бути від 0 до {formatMoney(casinoMaxStake)}.
+                      Введіть ставку 0 USD або більше.
                     </p>
                   ) : null}
 
@@ -2526,11 +2598,8 @@ function PendingActionPanel({
 export default function PlayPage({ params }: PlayPageProps) {
   const joinCode = useMemo(() => normalizeJoinCode(params.code), [params.code]);
   const botTurnInFlightRef = useRef<string | null>(null);
-  const storageKey = useMemo(
-    () => `economic-olympus-active-player:${joinCode}`,
-    [joinCode],
-  );
   const {
+    applyStateSnapshot,
     currentPlayer,
     currentTurnPlayer,
     error,
@@ -2544,48 +2613,38 @@ export default function PlayPage({ params }: PlayPageProps) {
     refresh,
     refreshing,
   } = useGameRealtime({ joinCode });
-  const [activePlayerId, setActivePlayerId] = useState<PlayerId | null>(null);
   const [botTurnError, setBotTurnError] = useState<string | null>(null);
   const [privatePlayerCardOpen, setPrivatePlayerCardOpen] = useState(false);
+  const [privatePlayerSnapshot, setPrivatePlayerSnapshot] =
+    useState<Player | null>(null);
   const [thinkingBotPlayerId, setThinkingBotPlayerId] =
     useState<PlayerId | null>(null);
 
-  useEffect(() => {
-    try {
-      const savedPlayerId = window.sessionStorage.getItem(storageKey);
-
-      if (savedPlayerId) {
-        setActivePlayerId(savedPlayerId);
-      }
-    } catch {
-      setActivePlayerId(null);
-    }
-  }, [storageKey]);
-
-  useEffect(() => {
-    setActivePlayerId((currentActivePlayerId) => {
-      if (
-        currentActivePlayerId &&
-        players.some((player) => player.id === currentActivePlayerId)
-      ) {
-        return currentActivePlayerId;
-      }
-
-      return currentTurnPlayer?.id ?? currentPlayer?.id ?? players[0]?.id ?? null;
-    });
-  }, [currentPlayer?.id, currentTurnPlayer?.id, players]);
-
-  const activePlayer = useMemo(
-    () => players.find((player) => player.id === activePlayerId) ?? null,
-    [activePlayerId, players],
-  );
-  const privatePlayer = useMemo(
+  const basePrivatePlayer = useMemo(
     () =>
       currentPlayer
         ? players.find((player) => player.id === currentPlayer.id) ?? currentPlayer
         : null,
     [currentPlayer, players],
   );
+  const privatePlayer = useMemo(() => {
+    if (!basePrivatePlayer) {
+      return null;
+    }
+
+    if (
+      privatePlayerSnapshot?.id === basePrivatePlayer.id &&
+      readPlayerTimestamp(privatePlayerSnapshot) >=
+        readPlayerTimestamp(basePrivatePlayer)
+    ) {
+      return {
+        ...basePrivatePlayer,
+        ...privatePlayerSnapshot,
+      };
+    }
+
+    return basePrivatePlayer;
+  }, [basePrivatePlayer, privatePlayerSnapshot]);
   const boardPlayers = useMemo(
     () =>
       players.filter((player) => !player.eliminated).map((player) => ({
@@ -2598,12 +2657,12 @@ export default function PlayPage({ params }: PlayPageProps) {
     [players],
   );
   const activeCellId =
-    activePlayer?.cellId ?? currentTurnPlayer?.cellId ?? players[0]?.cellId;
+    currentTurnPlayer?.cellId ?? privatePlayer?.cellId ?? players[0]?.cellId;
   const isActivePlayerTurn = Boolean(
-    activePlayer && gameState?.currentTurnPlayerId === activePlayer.id,
+    privatePlayer && gameState?.currentTurnPlayerId === privatePlayer.id,
   );
   const canControlActivePlayer = Boolean(
-    activePlayer && currentPlayer && activePlayer.id === currentPlayer.id,
+    privatePlayer && currentPlayer && privatePlayer.id === currentPlayer.id,
   );
   const diceDisabled =
     !gameState ||
@@ -2611,6 +2670,57 @@ export default function PlayPage({ params }: PlayPageProps) {
     !isActivePlayerTurn ||
     !canControlActivePlayer ||
     Boolean(gameState.pendingAction);
+
+  const handleActionResolved = useCallback(
+    async (stateSnapshot?: unknown, playerSnapshot?: Player | null) => {
+      let resolvedPlayerSnapshot = playerSnapshot ?? null;
+
+      if (stateSnapshot) {
+        const snapshotPlayer = readPlayerFromStateSnapshot(
+          stateSnapshot,
+          basePrivatePlayer?.id ?? currentPlayer?.id,
+        );
+
+        if (snapshotPlayer) {
+          resolvedPlayerSnapshot = snapshotPlayer;
+        }
+      }
+
+      if (resolvedPlayerSnapshot) {
+        setPrivatePlayerSnapshot(resolvedPlayerSnapshot);
+      }
+
+      if (stateSnapshot) {
+        applyStateSnapshot(stateSnapshot);
+        window.setTimeout(() => {
+          void refresh();
+        }, 350);
+        return;
+      }
+
+      await refresh();
+    },
+    [applyStateSnapshot, basePrivatePlayer?.id, currentPlayer?.id, refresh],
+  );
+
+  useEffect(() => {
+    if (!privatePlayerSnapshot) {
+      return;
+    }
+
+    if (!basePrivatePlayer || privatePlayerSnapshot.id !== basePrivatePlayer.id) {
+      setPrivatePlayerSnapshot(null);
+      return;
+    }
+
+    if (
+      readPlayerTimestamp(basePrivatePlayer) >=
+        readPlayerTimestamp(privatePlayerSnapshot) &&
+      haveSamePlayerStats(basePrivatePlayer, privatePlayerSnapshot)
+    ) {
+      setPrivatePlayerSnapshot(null);
+    }
+  }, [basePrivatePlayer, privatePlayerSnapshot]);
 
   useEffect(() => {
     if (!privatePlayer) {
@@ -2689,19 +2799,6 @@ export default function PlayPage({ params }: PlayPageProps) {
     gameState?.turn?.number,
     refresh,
   ]);
-
-  const selectActivePlayer = useCallback(
-    (playerId: PlayerId) => {
-      setActivePlayerId(playerId);
-
-      try {
-        window.sessionStorage.setItem(storageKey, playerId);
-      } catch {
-        // Session storage is optional; the active seat still works in memory.
-      }
-    },
-    [storageKey],
-  );
 
   return (
     <div className="min-h-screen text-slate-950">
@@ -2793,10 +2890,8 @@ export default function PlayPage({ params }: PlayPageProps) {
                   {players.length > 0 ? (
                     <div className="mt-4 border-t border-violet-300/20 pt-4">
                       <SeatSwitcher
-                        activePlayerId={activePlayer?.id ?? null}
                         browserPlayerId={currentPlayer?.id ?? null}
                         currentTurnPlayerId={gameState.currentTurnPlayerId}
-                        onSelect={selectActivePlayer}
                         players={players}
                       />
                     </div>
@@ -2857,7 +2952,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                       gameId={gameState.gameId}
                       isCurrentPlayerTurn={isActivePlayerTurn}
                       onRolled={refresh}
-                      playerId={activePlayer?.id ?? null}
+                      playerId={privatePlayer?.id ?? null}
                     />
 
                     {privatePlayer ? (
@@ -2883,96 +2978,25 @@ export default function PlayPage({ params }: PlayPageProps) {
                 gameId={gameState.gameId}
                 isCurrentPlayerTurn={isActivePlayerTurn}
                 onRolled={refresh}
-                playerId={activePlayer?.id ?? null}
+                playerId={privatePlayer?.id ?? null}
               />
 
-              {activePlayer ? (
-                <section className="neo-panel rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-                        Активне сидіння
-                      </p>
-                      <h2 className="mt-1 truncate text-lg font-bold tracking-normal text-slate-950">
-                        {activePlayer.name}
-                      </h2>
-                    </div>
-                    <span
-                      className={joinClassNames(
-                        'rounded px-2 py-1 text-xs font-bold',
-                        !canControlActivePlayer
-                          ? 'bg-amber-100 text-amber-800'
-                          : isActivePlayerTurn
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-slate-100 text-slate-600',
-                      )}
-                    >
-                      {!canControlActivePlayer
-                        ? 'Перегляд'
-                        : isActivePlayerTurn
-                          ? 'Хід'
-                          : activePlayer.ring}
-                    </span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div className="neo-panel-pressed rounded-[14px] bg-slate-50 px-2 py-2">
-                      <p className="text-[11px] font-bold text-slate-500">Баланс</p>
-                      <AnimatedNumber
-                        className="mt-1 block truncate text-sm font-bold text-slate-950"
-                        formatter={formatMoney}
-                        value={activePlayer.balance}
-                      />
-                    </div>
-                    <div className="neo-panel-pressed rounded-[14px] bg-slate-50 px-2 py-2">
-                      <p className="text-[11px] font-bold text-slate-500">Імідж</p>
-                      <AnimatedNumber
-                        className="mt-1 block text-sm font-bold text-slate-950"
-                        formatter={formatInteger}
-                        value={activePlayer.image}
-                      />
-                    </div>
-                    <div className="neo-panel-pressed rounded-[14px] bg-slate-50 px-2 py-2">
-                      <p className="text-[11px] font-bold text-slate-500">Запас</p>
-                      <AnimatedNumber
-                        className="mt-1 block text-sm font-bold text-slate-950"
-                        formatter={formatInteger}
-                        value={activePlayer.inventory}
-                      />
-                    </div>
-                  </div>
-                  {!canControlActivePlayer ? (
-                    <p className="mt-3 rounded-[14px] bg-amber-500/12 px-3 py-2 text-xs font-semibold text-amber-100">
-                      Це сидіння відкрите для перегляду.
-                    </p>
-                  ) : null}
-                  {activePlayer.eliminated ? (
-                    <p className="mt-3 rounded-[14px] border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-100">
-                      Гравець вибув з гри через борг 100 000 USD або більше.
-                    </p>
-                  ) : activePlayer.debtWarning || activePlayer.balance < -50000 ? (
-                    <p className="mt-3 rounded-[14px] border border-amber-300/40 bg-amber-500/15 px-3 py-2 text-xs font-bold text-amber-100">
-                      Борг перевищив 50 000 USD. Потрібно збільшити капітал і
-                      вийти з боргу, інакше при 100 000 USD гравець вибуває.
-                    </p>
-                  ) : null}
-                  {privatePlayer ? (
-                    <button
-                      className="neo-button mt-3 h-10 w-full rounded-[16px] bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                      onClick={() => setPrivatePlayerCardOpen(true)}
-                      type="button"
-                    >
-                      Карточка гравця
-                    </button>
-                  ) : null}
-                </section>
+              {privatePlayer ? (
+                <button
+                  className="neo-button h-11 w-full rounded-[16px] bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  onClick={() => setPrivatePlayerCardOpen(true)}
+                  type="button"
+                >
+                  Карточка гравця
+                </button>
               ) : null}
 
               <PendingActionPanel
                 action={gameState.pendingAction}
-                activePlayer={activePlayer}
+                activePlayer={privatePlayer}
                 controllablePlayerId={currentPlayer?.id ?? null}
                 gameState={gameState}
-                onResolved={refresh}
+                onResolved={handleActionResolved}
               />
 
               {thinkingBotPlayerId || botTurnError ? (

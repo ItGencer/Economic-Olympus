@@ -46,6 +46,7 @@ const en = {
   'Ваш хід': 'Your turn',
   'Ваші акції': 'Your shares',
   'Введіть код гри.': 'Enter the game code.',
+  'Введіть ставку 0 USD або більше.': 'Enter a bet of 0 USD or more.',
   'Великий бізнес': 'Big business',
   'Вибір': 'Choice',
   'Вибув': 'Eliminated',
@@ -78,6 +79,8 @@ const en = {
   'Гравець': 'Player',
   'Гравець вибув з гри через борг 100 000 USD або більше.':
     'The player was eliminated because debt reached 100,000 USD or more.',
+  'Гравець може ставити навіть із боргом; програш збільшує борг.':
+    'The player can bet even while in debt; a loss increases the debt.',
   'Гравці': 'Players',
   'Гравці ходять по черзі.': 'Players take turns.',
   'Грати': 'Play',
@@ -148,7 +151,10 @@ const en = {
   'Кабінет': 'Profile',
   'Кабінет гравця': 'Player profile',
   'Казино': 'Casino',
-  'Казино дозволяє ставку в кредит до': 'Casino allows a credit stake up to',
+  'Казино без ліміту: ставка може збільшити борг у разі програшу.':
+    'Unlimited casino: the bet can increase debt if you lose.',
+  'Казино можна прийняти навіть із боргом. Ставка безлімітна: гравець сам обирає суму, а програш може збільшити борг.':
+    'You can accept the casino even while in debt. The bet is unlimited: the player chooses the amount, and a loss can increase debt.',
   'Картка': 'Card',
   'Картка випадку': 'Random event card',
   'Картка гравця': 'Player card',
@@ -215,12 +221,13 @@ const en = {
   'Немає': 'None',
   'Немає мережі': 'No network',
   'Не купляти': 'Do not buy',
-  'Недостатньо коштів для ставки.': 'Not enough money for a bet.',
   'Недостатньо коштів для цієї картки.': 'Not enough money for this card.',
   'Німецька': 'German',
   'Новий переїзд': 'New relocation',
   'Новий стиль': 'New style',
   'Оберіть мову': 'Choose language',
+  'Оберіть будь-яку суму і вгадайте, парною чи непарною буде сума двох кубиків.':
+    'Choose any amount and guess whether the sum of two dice will be even or odd.',
   'Онлайн з першого ходу': 'Online from the first turn',
   'Онлайн реклама': 'Online advertising',
   'Онлайн-гра про репутацію, ризик і контроль активів.':
@@ -242,6 +249,7 @@ const en = {
   'Перейти': 'Move',
   'Перемоги': 'Wins',
   'Перемога': 'Victory',
+  'Персональна статистика': 'Personal stats',
   'Перемога настає після успішних виборів: кандидат має зібрати щонайменше 51% голосів активних директорів, а всі кидки, події та підрахунки виконує сервер.':
     'Victory comes after a successful election: the candidate must collect at least 51% of active director votes, while the server handles all rolls, events, and calculations.',
   'Перемагає гравець, який стає Генеральним директором. Для цього потрібно отримати щонайменше 51% голосів активних директорів.':
@@ -290,6 +298,7 @@ const en = {
   'Сеанс завершено.': 'Session finished.',
   'Сервер': 'Server',
   'Ставка': 'Bet',
+  'Ставка не має верхнього ліміту.': 'The bet has no upper limit.',
   'Старт': 'Start',
   'Стартовий етап гри. Тут гравець набирає імідж, проходить ділові зустрічі, ризикує в казино, отримує зарплату та стикається з випадковими подіями.':
     'The starting stage. Here the player builds reputation, attends business meetings, risks money in the casino, receives salary, and faces random events.',
@@ -369,6 +378,7 @@ const de = {
   'Ваш хід': 'Dein Zug',
   'Ваші акції': 'Deine Aktien',
   'Введіть код гри.': 'Gib den Spielcode ein.',
+  'Введіть ставку 0 USD або більше.': 'Gib einen Einsatz von 0 USD oder mehr ein.',
   'Великий бізнес': 'Großes Geschäft',
   'Вибір': 'Auswahl',
   'Вибув': 'Ausgeschieden',
@@ -400,6 +410,8 @@ const de = {
   'Гравець': 'Spieler',
   'Гравець вибув з гри через борг 100 000 USD або більше.':
     'Der Spieler ist ausgeschieden, weil die Schuld 100.000 USD oder mehr erreicht hat.',
+  'Гравець може ставити навіть із боргом; програш збільшує борг.':
+    'Der Spieler kann auch mit Schulden setzen; eine Niederlage erhöht die Schuld.',
   'Гравці': 'Spieler',
   'Грати': 'Spielen',
   'Гру завершено': 'Spiel beendet',
@@ -456,7 +468,10 @@ const de = {
   'Кабінет': 'Profil',
   'Кабінет гравця': 'Spielerprofil',
   'Казино': 'Kasino',
-  'Казино дозволяє ставку в кредит до': 'Das Kasino erlaubt einen Kredit-Einsatz bis',
+  'Казино без ліміту: ставка може збільшити борг у разі програшу.':
+    'Kasino ohne Limit: Der Einsatz kann bei einer Niederlage die Schuld erhöhen.',
+  'Казино можна прийняти навіть із боргом. Ставка безлімітна: гравець сам обирає суму, а програш може збільшити борг.':
+    'Das Kasino kann auch mit Schulden angenommen werden. Der Einsatz ist unbegrenzt: Der Spieler wählt den Betrag, und eine Niederlage kann die Schuld erhöhen.',
   'Картка': 'Karte',
   'Картка випадку': 'Ereigniskarte',
   'Картка гравця': 'Spielerkarte',
@@ -513,12 +528,13 @@ const de = {
   'Немає': 'Keine',
   'Немає мережі': 'Kein Netzwerk',
   'Не купляти': 'Nicht kaufen',
-  'Недостатньо коштів для ставки.': 'Nicht genug Geld für den Einsatz.',
   'Недостатньо коштів для цієї картки.': 'Nicht genug Geld für diese Karte.',
   'Німецька': 'Deutsch',
   'Новий переїзд': 'Neuer Umzug',
   'Новий стиль': 'Neuer Stil',
   'Оберіть мову': 'Sprache wählen',
+  'Оберіть будь-яку суму і вгадайте, парною чи непарною буде сума двох кубиків.':
+    'Wähle einen beliebigen Betrag und tippe, ob die Summe der zwei Würfel gerade oder ungerade ist.',
   'Онлайн з першого ходу': 'Online ab dem ersten Zug',
   'Онлайн реклама': 'Online-Werbung',
   'Онлайн-гра про репутацію, ризик і контроль активів.':
@@ -537,6 +553,7 @@ const de = {
   'Перейти': 'Wechseln',
   'Перемоги': 'Siege',
   'Перемога': 'Sieg',
+  'Персональна статистика': 'Persönliche Statistik',
   'Переходимо до Google...': 'Google wird geöffnet...',
   'Перший етап': 'Erste Phase',
   'Підключення': 'Verbindung',
@@ -564,6 +581,7 @@ const de = {
   'Сеанс завершено.': 'Sitzung beendet.',
   'Сервер': 'Server',
   'Ставка': 'Einsatz',
+  'Ставка не має верхнього ліміту.': 'Der Einsatz hat keine Obergrenze.',
   'Старт': 'Start',
   'Статус': 'Status',
   'Стиль фішки': 'Spielsteinstil',
@@ -641,6 +659,7 @@ const ja = {
   'Ваш хід': 'あなたのターン',
   'Ваші акції': 'あなたの株式',
   'Введіть код гри.': 'ゲームコードを入力してください。',
+  'Введіть ставку 0 USD або більше.': '0 USD以上のベット額を入力してください。',
   'Великий бізнес': '大きなビジネス',
   'Вибір': '選択',
   'Вибув': '脱落',
@@ -672,6 +691,8 @@ const ja = {
   'Гравець': 'プレイヤー',
   'Гравець вибув з гри через борг 100 000 USD або більше.':
     '借金が100,000 USD以上になったため、プレイヤーは脱落しました。',
+  'Гравець може ставити навіть із боргом; програш збільшує борг.':
+    '借金があってもベットできます。負けると借金が増えます。',
   'Гравці': 'プレイヤー',
   'Грати': 'プレイ',
   'Гру завершено': 'ゲーム終了',
@@ -728,7 +749,10 @@ const ja = {
   'Кабінет': 'プロフィール',
   'Кабінет гравця': 'プレイヤープロフィール',
   'Казино': 'カジノ',
-  'Казино дозволяє ставку в кредит до': 'カジノは信用ベットを次の金額まで許可します:',
+  'Казино без ліміту: ставка може збільшити борг у разі програшу.':
+    '無制限カジノ: 負けた場合、ベットにより借金が増えることがあります。',
+  'Казино можна прийняти навіть із боргом. Ставка безлімітна: гравець сам обирає суму, а програш може збільшити борг.':
+    '借金があってもカジノを受け入れられます。ベット額は無制限で、プレイヤーが金額を選び、負けると借金が増えることがあります。',
   'Картка': 'カード',
   'Картка випадку': 'ランダムイベントカード',
   'Картка гравця': 'プレイヤーカード',
@@ -785,12 +809,13 @@ const ja = {
   'Немає': 'なし',
   'Немає мережі': 'ネットワークなし',
   'Не купляти': '購入しない',
-  'Недостатньо коштів для ставки.': 'ベットする資金が足りません。',
   'Недостатньо коштів для цієї картки.': 'このカードを購入する資金が足りません。',
   'Німецька': 'ドイツ語',
   'Новий переїзд': '新しい移転',
   'Новий стиль': '新しいスタイル',
   'Оберіть мову': '言語を選択',
+  'Оберіть будь-яку суму і вгадайте, парною чи непарною буде сума двох кубиків.':
+    '任意の金額を選び、2つのダイスの合計が偶数か奇数かを予想してください。',
   'Онлайн з першого ходу': '最初のターンからオンライン',
   'Онлайн реклама': 'オンライン広告',
   'Онлайн-гра про репутацію, ризик і контроль активів.':
@@ -809,6 +834,7 @@ const ja = {
   'Перейти': '移動',
   'Перемоги': '勝利',
   'Перемога': '勝利',
+  'Персональна статистика': '個人統計',
   'Переходимо до Google...': 'Googleを開いています...',
   'Перший етап': '第1段階',
   'Підключення': '接続中',
@@ -836,6 +862,7 @@ const ja = {
   'Сеанс завершено.': 'セッション終了。',
   'Сервер': 'サーバー',
   'Ставка': 'ベット',
+  'Ставка не має верхнього ліміту.': 'ベット額に上限はありません。',
   'Старт': 'スタート',
   'Статус': 'ステータス',
   'Стиль фішки': 'トークンのスタイル',

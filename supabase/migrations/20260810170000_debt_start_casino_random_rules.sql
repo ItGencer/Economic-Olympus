@@ -775,7 +775,6 @@ declare
     'Help_OS',
     'Helper'
   ];
-  v_casino_max_stake integer;
   v_debt_positive_random boolean := false;
   v_has_pending_action boolean := false;
   v_handled boolean := false;
@@ -967,15 +966,14 @@ begin
     v_has_pending_action := true;
     v_event_type := 'cell_casino_pending';
     v_message := 'Casino bet requested';
-    v_casino_max_stake := case when v_balance > 0 then v_balance else 1000 end;
     v_pending_action := jsonb_build_object(
       'id', gen_random_uuid(),
       'type', 'casino_bet',
       'playerId', v_player.id,
       'cellId', v_cell_id,
       'payload', jsonb_build_object(
-        'maxStake', v_casino_max_stake,
-        'creditStake', v_balance <= 0,
+        'unlimitedStake', true,
+        'creditStake', true,
         'choices', jsonb_build_array('even', 'odd')
       ),
       'createdAt', v_now
@@ -1148,7 +1146,6 @@ declare
   v_phase text;
   v_parity text := lower(trim(coalesce(p_parity, '')));
   v_bet_amount integer := coalesce(p_bet_amount, 0);
-  v_max_stake integer;
   v_die_one integer := null;
   v_die_two integer := null;
   v_total integer := null;
@@ -1226,10 +1223,6 @@ begin
   v_cell_id := coalesce(nullif(v_player_json->>'cellId', ''), v_pending_action->>'cellId');
   v_debt_locked := coalesce((v_player_json->>'debtLocked')::boolean, false);
   v_turn_number := coalesce((v_game.state#>>'{turn,number}')::integer, 0);
-  v_max_stake := coalesce(
-    nullif(v_payload->>'maxStake', '')::integer,
-    case when v_balance > 0 then v_balance else 1000 end
-  );
 
   if coalesce((v_player_json->>'eliminated')::boolean, false) then
     raise exception 'player_eliminated';
@@ -1242,10 +1235,6 @@ begin
 
     if v_bet_amount < 0 then
       raise exception 'casino_bet_must_not_be_negative';
-    end if;
-
-    if v_bet_amount > v_max_stake then
-      raise exception 'casino_bet_exceeds_limit';
     end if;
 
     if v_parity not in ('even', 'odd') then
@@ -1419,7 +1408,6 @@ begin
       'actionId', v_pending_action->>'id',
       'decision', v_decision,
       'betAmount', case when v_decision = 'decline' then null else v_bet_amount end,
-      'maxStake', v_max_stake,
       'parity', case when v_decision = 'decline' then null else v_parity end,
       'dice', case when v_decision = 'decline' then '[]'::jsonb else jsonb_build_array(v_die_one, v_die_two) end,
       'total', v_total,
