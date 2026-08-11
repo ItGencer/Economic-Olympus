@@ -444,14 +444,15 @@ function readErrorMessage(error: unknown) {
   return 'Невідома помилка';
 }
 
-function readAvatarSaveErrorMessage(error: unknown) {
+function readPlayerProfileSaveErrorMessage(error: unknown) {
   const message = readErrorMessage(error);
 
   if (
-    message.includes('update_player_avatar') &&
+    (message.includes('update_player_avatar') ||
+      message.includes('update_player_profile')) &&
     message.includes('schema cache')
   ) {
-    return 'Функція update_player_avatar ще не застосована в Supabase. Виконай SQL з файлу supabase/sql/apply_player_avatar_customization.sql у Supabase SQL Editor, потім онови сторінку.';
+    return 'Функція профілю гравця ще не застосована в Supabase. Виконай SQL з файлу supabase/sql/apply_player_profile_customization.sql у Supabase SQL Editor, потім онови сторінку.';
   }
 
   return message;
@@ -755,36 +756,38 @@ function SeatSwitcher({
 function PrivatePlayerStatsModal({
   gameState,
   onClose,
-  onAvatarUpdated,
+  onPlayerUpdated,
   open,
   player,
 }: {
   gameState: GameState;
   onClose: () => void;
-  onAvatarUpdated?: () => Promise<void> | void;
+  onPlayerUpdated?: (stateSnapshot?: unknown) => Promise<void> | void;
   open: boolean;
   player: Player;
 }) {
+  const [displayName, setDisplayName] = useState(player.name);
   const [avatarStyle, setAvatarStyle] = useState<PlayerAvatarStyle>(
     normalizeAvatarStyle(player.avatarStyle),
   );
   const [avatarColor, setAvatarColor] = useState(
     normalizeAvatarColor(player.avatarColor),
   );
-  const [avatarSaveError, setAvatarSaveError] = useState<string | null>(null);
-  const [avatarSaveStatus, setAvatarSaveStatus] = useState<string | null>(null);
-  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileSaveStatus, setProfileSaveStatus] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
+    setDisplayName(player.name);
     setAvatarStyle(normalizeAvatarStyle(player.avatarStyle));
     setAvatarColor(normalizeAvatarColor(player.avatarColor));
-    setAvatarSaveError(null);
-    setAvatarSaveStatus(null);
-  }, [open, player.avatarColor, player.avatarStyle, player.id]);
+    setProfileSaveError(null);
+    setProfileSaveStatus(null);
+  }, [open, player.avatarColor, player.avatarStyle, player.id, player.name]);
 
   if (!open) {
     return null;
@@ -812,19 +815,27 @@ function PrivatePlayerStatsModal({
     .map((tenderId) => gameState.tenders[tenderId])
     .filter(Boolean);
   const meetingsTotal = player.successfulDeals + player.failedDeals;
+  const normalizedDisplayName = displayName.trim().replace(/\s+/g, ' ');
+  const nameChanged = normalizedDisplayName !== player.name;
   const avatarChanged =
     avatarStyle !== normalizeAvatarStyle(player.avatarStyle) ||
     avatarColor !== normalizeAvatarColor(player.avatarColor);
+  const profileChanged = nameChanged || avatarChanged;
+  const canSaveProfile =
+    profileChanged &&
+    normalizedDisplayName.length >= 2 &&
+    normalizedDisplayName.length <= 32;
 
-  async function handleSaveAvatar() {
-    setAvatarSaveError(null);
-    setAvatarSaveStatus(null);
-    setAvatarSaving(true);
+  async function handleSavePlayerProfile() {
+    setProfileSaveError(null);
+    setProfileSaveStatus(null);
+    setProfileSaving(true);
 
     try {
       const supabase = getSupabaseClient();
-      const { error: saveError } = await supabase.rpc('update_player_avatar', {
+      const { data, error: saveError } = await supabase.rpc('update_player_profile', {
         p_game_id: gameState.gameId,
+        p_display_name: normalizedDisplayName,
         p_avatar_style: avatarStyle,
         p_avatar_color: avatarColor,
       });
@@ -833,12 +844,12 @@ function PrivatePlayerStatsModal({
         throw saveError;
       }
 
-      await onAvatarUpdated?.();
-      setAvatarSaveStatus('Фішку збережено');
+      await onPlayerUpdated?.(readRpcStateSnapshot(data));
+      setProfileSaveStatus('Профіль гравця збережено');
     } catch (caughtError) {
-      setAvatarSaveError(readAvatarSaveErrorMessage(caughtError));
+      setProfileSaveError(readPlayerProfileSaveErrorMessage(caughtError));
     } finally {
-      setAvatarSaving(false);
+      setProfileSaving(false);
     }
   }
 
@@ -867,7 +878,7 @@ function PrivatePlayerStatsModal({
               className="mt-1 truncate text-2xl font-bold tracking-normal text-slate-950"
               id="private-player-card-title"
             >
-              {player.name}
+              {normalizedDisplayName || player.name}
             </h2>
           </div>
           <button
@@ -889,7 +900,7 @@ function PrivatePlayerStatsModal({
                   avatarStyle={avatarStyle}
                   className="shadow-[0_0_28px_rgba(192,132,252,0.55),inset_0_0_14px_rgba(168,85,247,0.22)]"
                   key={`${avatarStyle}-${avatarColor}-preview`}
-                  name={player.name}
+                  name={normalizedDisplayName || player.name}
                   size="lg"
                 />
                 <div className="min-w-0">
@@ -897,25 +908,43 @@ function PrivatePlayerStatsModal({
                     Фішка
                   </p>
                   <h3 className="mt-1 text-lg font-bold tracking-normal text-slate-950">
-                    {player.name}
+                    {normalizedDisplayName || player.name}
                   </h3>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Обери стиль і неоновий колір своєї фішки.
+                    Обери ім'я, стиль і неоновий колір своєї фішки.
                   </p>
                 </div>
               </div>
 
               <button
                 className="neo-button h-11 rounded-[16px] bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={avatarSaving || !avatarChanged}
-                onClick={() => void handleSaveAvatar()}
+                disabled={profileSaving || !canSaveProfile}
+                onClick={() => void handleSavePlayerProfile()}
                 type="button"
               >
-                {avatarSaving ? 'Зберігаємо...' : 'Зберегти'}
+                {profileSaving ? 'Зберігаємо...' : 'Зберегти'}
               </button>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+              <label className="block min-w-0 lg:col-span-2">
+                <span className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                  Ім'я гравця
+                </span>
+                <input
+                  className="mt-2 h-11 w-full rounded-[16px] border border-violet-300/30 bg-[#12121a] px-3 text-sm font-bold text-violet-50 outline-none transition [color-scheme:dark] placeholder:text-slate-500 focus:border-fuchsia-300/70 focus:ring-4 focus:ring-violet-500/20"
+                  maxLength={32}
+                  minLength={2}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  placeholder="Ім'я над фішкою"
+                  type="text"
+                  value={displayName}
+                />
+                <span className="mt-1 block text-xs font-semibold text-slate-500">
+                  Від 2 до 32 символів. Це ім'я буде показане над фішкою на дошці.
+                </span>
+              </label>
+
               <label className="block min-w-0">
                 <span className="text-xs font-bold uppercase tracking-normal text-slate-500">
                   Стиль фішки
@@ -998,7 +1027,7 @@ function PrivatePlayerStatsModal({
                         avatarColor={avatarColor}
                         avatarStyle={option.id}
                         key={`${option.id}-${avatarColor}-style-option`}
-                        name={player.name}
+                        name={normalizedDisplayName || player.name}
                         size="sm"
                       />
                       <span>{option.label}</span>
@@ -1008,14 +1037,14 @@ function PrivatePlayerStatsModal({
               </div>
             </div>
 
-            {avatarSaveStatus ? (
+            {profileSaveStatus ? (
               <p className="mt-3 rounded-[14px] bg-emerald-500/12 px-3 py-2 text-sm font-bold text-emerald-100">
-                {avatarSaveStatus}
+                {profileSaveStatus}
               </p>
             ) : null}
-            {avatarSaveError ? (
+            {profileSaveError ? (
               <p className="mt-3 rounded-[14px] bg-rose-500/12 px-3 py-2 text-sm font-bold text-rose-100">
-                {avatarSaveError}
+                {profileSaveError}
               </p>
             ) : null}
           </section>
@@ -3020,8 +3049,8 @@ export default function PlayPage({ params }: PlayPageProps) {
         {gameState && privatePlayer ? (
           <PrivatePlayerStatsModal
             gameState={gameState}
-            onAvatarUpdated={refresh}
             onClose={() => setPrivatePlayerCardOpen(false)}
+            onPlayerUpdated={handleActionResolved}
             open={privatePlayerCardOpen}
             player={privatePlayer}
           />

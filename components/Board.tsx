@@ -118,16 +118,24 @@ function CellTile({
       </span>
 
       {players.length > 0 ? (
-        <div className="mt-1 flex min-h-10 justify-center -space-x-2">
+        <div className="mt-1 flex min-h-14 flex-wrap items-end justify-center gap-1">
           {players.slice(0, 4).map((player) => (
-            <PlayerAvatarToken
-              avatarColor={player.avatarColor}
-              avatarStyle={player.avatarStyle}
-              className="relative ring-2 ring-[#151522]"
+            <span
+              className="flex w-12 flex-col items-center gap-0.5"
               key={player.id}
-              name={player.name}
-              size="sm"
-            />
+              title={player.name}
+            >
+              <span className="max-w-12 truncate text-center text-[8px] font-black leading-none text-violet-50 drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]">
+                {player.name}
+              </span>
+              <PlayerAvatarToken
+                avatarColor={player.avatarColor}
+                avatarStyle={player.avatarStyle}
+                className="relative ring-2 ring-[#151522]"
+                name={player.name}
+                size="sm"
+              />
+            </span>
           ))}
           {players.length > 4 ? (
             <span className="grid h-10 w-10 place-items-center rounded-full border border-violet-300/40 bg-[#181824] text-[10px] font-bold leading-none text-fuchsia-100 shadow-[0_0_14px_rgba(192,132,252,0.35)]">
