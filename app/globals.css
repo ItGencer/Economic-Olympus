@@ -332,6 +332,31 @@ a {
   color: var(--neo-secondary) !important;
 }
 
+.neo-theme .hover\:bg-white:hover,
+.neo-theme .hover\:bg-slate-50:hover {
+  background: rgba(168, 85, 247, 0.18) !important;
+  color: var(--neo-text) !important;
+}
+
+.neo-theme .hover\:bg-emerald-50:hover {
+  background: rgba(16, 185, 129, 0.16) !important;
+  color: #d1fae5 !important;
+}
+
+.neo-theme .hover\:bg-rose-50:hover {
+  background: rgba(244, 63, 94, 0.16) !important;
+  color: #ffe4e6 !important;
+}
+
+.neo-theme .disabled\:bg-slate-300:disabled {
+  background: rgba(40, 40, 58, 0.82) !important;
+  color: rgba(229, 229, 240, 0.66) !important;
+}
+
+.neo-theme .disabled\:text-slate-300:disabled {
+  color: rgba(229, 229, 240, 0.66) !important;
+}
+
 .neo-button,
 .neo-theme button {
   transition:

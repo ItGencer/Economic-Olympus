@@ -7,9 +7,9 @@ import SiteFooter from '@/components/SiteFooter';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Economic Olympus',
+  title: 'Economic-olympus',
   description:
-    'Онлайн економічна настільна гра з авторизацією, лобі та серверною логікою через Supabase.',
+    'Economic-olympus — онлайн стратегічна настільна гра про репутацію, ризик і контроль активів.',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
