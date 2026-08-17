@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import SiteHeader from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
-  title: 'Правила гри | Economic Olympus',
+  title: 'Правила гри',
   description:
     'Зрозумілі правила Economic Olympus: мета гри, хід, клітинки, борги, казино, ділові зустрічі та перемога.',
 };
