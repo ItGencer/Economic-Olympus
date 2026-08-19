@@ -254,8 +254,8 @@ const en = {
     'Victory comes after a successful election: the candidate must collect at least 51% of active director votes, while the server handles all rolls, events, and calculations.',
   'Перемагає гравець, який стає Генеральним директором. Для цього потрібно отримати щонайменше 51% голосів активних директорів.':
     'The player who becomes CEO wins. To do that, they need at least 51% of active director votes.',
-  'Перехід на зовнішнє коло стає доступним, коли у гравця позитивний баланс, немає боргового блокування та є щонайменше 7 успішних ділових зустрічей. Після 10 успішних зустрічей гра обов’язково запропонує вибір: перейти на зовнішнє коло або ще залишитись всередині.':
-    'Moving to the outer ring becomes available when the player has a positive balance, no debt lock, and at least 7 successful business meetings. After 10 successful meetings, the game must offer the choice to move out or stay inside.',
+  'Перехід на зовнішнє коло стає доступним, коли у гравця немає боргу, баланс не нижче 0 $ та є 5 успішних ділових зустрічей поспіль після погашення боргу. Після п’ятої вдалої зустрічі гра запропонує вибір: перейти на зовнішнє коло або залишитись всередині. Якщо відмовитись, лічильник успішних зустрічей скидається до 0.':
+    'Moving to the outer ring becomes available when the player has no debt, a balance of at least $0, and 5 successful business meetings in a row after repaying debt. After the fifth successful meeting, the game offers a choice: move to the outer ring or stay inside. If the player refuses, the successful meeting counter resets to 0.',
   'Переходимо до Google...': 'Opening Google...',
   'Перший етап': 'First stage',
   'Підключення': 'Connecting',

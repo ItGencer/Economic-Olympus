@@ -1474,6 +1474,102 @@ function PendingActionPanel({
       shareCount > 0 &&
       shareCount <= companyMaxPurchasableShares,
   );
+  const outerRingMessage = readPayloadString(
+    action.payload,
+    'message',
+    'У вас 5 вдалих угод у Вас немає боргів. Ви можете перейти на зовнішнє коло',
+  );
+  const outerRingSuccessfulDeals = readPayloadNumber(
+    action.payload,
+    'successfulDeals',
+    activePlayer?.successfulDeals ?? 0,
+  );
+  const outerRingTargetCellId = readPayloadString(
+    action.payload,
+    'targetCellId',
+    'outer-image-01',
+  );
+
+  if (action.type === 'outer_ring_choice' && canAct) {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-[clamp(12px,4vw,40px)] backdrop-blur-sm">
+        <section className="neo-panel pointer-events-auto w-full max-w-[520px] rounded-[22px] border border-violet-300/45 bg-[#1d1a2a]/95 p-6 text-slate-100 shadow-[0_28px_90px_rgba(12,8,28,0.72),0_0_48px_rgba(168,85,247,0.28)] ring-1 ring-white/10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-violet-300/60 bg-violet-500/15 text-2xl font-black text-violet-100 shadow-[0_0_28px_rgba(168,85,247,0.45)]">
+            5
+          </div>
+
+          <div className="mt-5 text-center">
+            <p className="text-xs font-bold uppercase tracking-normal text-violet-200">
+              Перехід на зовнішнє коло
+            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-normal text-white">
+              Новий рівень гри відкрито
+            </h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-200">
+              {outerRingMessage}
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-3 rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-4 text-sm font-semibold text-slate-200 sm:grid-cols-2">
+            <div>
+              <p className="text-xs uppercase tracking-normal text-slate-400">
+                Вдалі угоди
+              </p>
+              <p className="mt-1 text-lg font-black text-white">
+                {formatInteger(outerRingSuccessfulDeals)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-normal text-slate-400">
+                Старт зовнішнього кола
+              </p>
+              <p className="mt-1 text-lg font-black text-white">
+                {outerRingTargetCellId}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              className="h-12 rounded-[16px] bg-violet-500 px-4 text-sm font-black text-white shadow-[0_0_26px_rgba(168,85,247,0.35)] transition duration-300 hover:bg-violet-400 hover:shadow-[0_0_34px_rgba(192,132,252,0.55)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+              disabled={busy}
+              onClick={() =>
+                runRpc('ring_transition', {
+                  p_decision: 'move_to_outer',
+                  p_game_id: gameState.gameId,
+                })
+              }
+              type="button"
+            >
+              Підтверджую
+            </button>
+            <button
+              className="h-12 rounded-[16px] border border-violet-300/45 bg-slate-950/35 px-4 text-sm font-black text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:border-violet-200 hover:bg-violet-300/10 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:text-slate-500"
+              disabled={busy}
+              onClick={() =>
+                runRpc('ring_transition', {
+                  p_decision: 'stay_inner',
+                  p_game_id: gameState.gameId,
+                })
+              }
+              type="button"
+            >
+              Відмовляюсь
+            </button>
+          </div>
+
+          {error ? (
+            <p
+              aria-live="polite"
+              className="mt-4 rounded-md border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-sm font-bold text-rose-100"
+            >
+              {error}
+            </p>
+          ) : null}
+        </section>
+      </div>
+    );
+  }
 
   if (action.type === 'random_event' && randomCard) {
     const randomSign = readPayloadString(action.payload, 'sign', 'positive');
@@ -2792,7 +2888,7 @@ function PendingActionPanel({
               }
               type="button"
             >
-              Перейти
+              Підтверджую
             </button>
             <button
               className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
@@ -2805,7 +2901,7 @@ function PendingActionPanel({
               }
               type="button"
             >
-              Залишитись
+              Відмовляюсь
             </button>
           </div>
         ) : null}
