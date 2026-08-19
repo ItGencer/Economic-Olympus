@@ -8,10 +8,11 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import SiteHeader from '@/components/SiteHeader';
 import type { GameRealtimeStatus } from '@/hooks/useGameRealtime';
 import {
+  ensurePlayableUser,
   getSupabaseClient,
   getSupabaseSetupErrorMessage,
   isSupabaseConfigured,
-  requireAuthenticatedUser,
+  readPlayableUserName,
 } from '@/lib/supabase';
 
 type GameStatus = 'lobby' | 'in_progress' | 'finished';
@@ -225,10 +226,17 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       setError(null);
 
       try {
-        await requireAuthenticatedUser();
+        const user = await ensurePlayableUser();
+        const playerName = displayName.trim() || readPlayableUserName(user);
+
+        if (!cancelled) {
+          setCurrentUserId(user.id);
+          setDisplayName(playerName);
+        }
+
         const supabase = getSupabaseClient();
         const { data, error: createError } = await supabase.rpc('create_game', {
-          p_display_name: displayName,
+          p_display_name: playerName,
           p_max_players: 6,
         });
 
@@ -272,10 +280,15 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       setError(null);
 
       try {
-        const user = await requireAuthenticatedUser();
+        const user = await ensurePlayableUser();
 
         if (!cancelled) {
           setCurrentUserId(user.id);
+          setDisplayName((name) =>
+            name.trim() && name !== 'Гравець'
+              ? name
+              : readPlayableUserName(user),
+          );
         }
 
         await loadLobby();
@@ -395,12 +408,12 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const user = await requireAuthenticatedUser();
+      const user = await ensurePlayableUser();
       setCurrentUserId(user.id);
 
       const supabase = getSupabaseClient();
       const { data, error: joinError } = await supabase.rpc('join_game', {
-        p_display_name: displayName,
+        p_display_name: displayName.trim() || readPlayableUserName(user),
         p_join_code: game.join_code,
       });
 

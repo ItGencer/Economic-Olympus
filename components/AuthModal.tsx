@@ -6,6 +6,7 @@ type AuthModalProps = {
   open: boolean;
   onClose: () => void;
   onSignIn: () => Promise<void> | void;
+  onStartTestSession?: () => Promise<void> | void;
 };
 
 export function AuthModal({
@@ -14,6 +15,7 @@ export function AuthModal({
   open,
   onClose,
   onSignIn,
+  onStartTestSession,
 }: AuthModalProps) {
   if (!open) {
     return null;
@@ -78,6 +80,17 @@ export function AuthModal({
             </span>
             {busy ? 'Переходимо до Google...' : 'Увійти через Google'}
           </button>
+
+          {onStartTestSession ? (
+            <button
+              className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-[18px] border border-amber-300/35 bg-amber-300/10 px-4 text-sm font-black text-amber-100 transition hover:border-amber-200 hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={busy}
+              onClick={() => void onStartTestSession()}
+              type="button"
+            >
+              Тестова версія гри без Google
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

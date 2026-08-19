@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  ensurePlayableUser,
   getSupabaseClient,
   getSupabaseSetupErrorMessage,
   isSupabaseConfigured,
-  requireAuthenticatedUser,
 } from '@/lib/supabase';
 import {
   normalizeAvatarColor,
@@ -352,7 +352,7 @@ export function useGameRealtime({
       setError(null);
 
       try {
-        const user = await requireAuthenticatedUser();
+        const user = await ensurePlayableUser();
         const supabase = getSupabaseClient();
         let query = supabase
           .from('games')

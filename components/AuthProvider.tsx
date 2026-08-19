@@ -13,6 +13,7 @@ import type { User } from '@supabase/supabase-js';
 
 import AuthModal from '@/components/AuthModal';
 import {
+  ensurePlayableUser,
   getSupabaseConfigStatus,
   getSupabaseClient,
   getSupabaseSetupErrorMessage,
@@ -26,6 +27,7 @@ type AuthContextValue = {
   openAuthModal: () => void;
   refreshUser: () => Promise<User | null>;
   signIn: () => Promise<void>;
+  startTestSession: () => Promise<void>;
   signOut: () => Promise<void>;
   user: User | null;
 };
@@ -185,6 +187,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supabaseConfig.configured, supabaseSetupError]);
 
+  const startTestSession = useCallback(async () => {
+    if (!supabaseConfig.configured) {
+      setAuthError(supabaseSetupError);
+      setAuthModalOpen(true);
+      return;
+    }
+
+    setBusy(true);
+    setAuthError(null);
+
+    try {
+      const testUser = await ensurePlayableUser();
+      setUser(testUser);
+      setAuthModalOpen(false);
+    } catch (error) {
+      setAuthError(readErrorMessage(error));
+      setAuthModalOpen(true);
+    } finally {
+      setBusy(false);
+    }
+  }, [supabaseConfig.configured, supabaseSetupError]);
+
   const signOut = useCallback(async () => {
     if (!supabaseConfig.configured) {
       setAuthError(null);
@@ -213,10 +237,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       openAuthModal,
       refreshUser,
       signIn,
+      startTestSession,
       signOut,
       user,
     }),
-    [closeAuthModal, loading, openAuthModal, refreshUser, signIn, signOut, user],
+    [
+      closeAuthModal,
+      loading,
+      openAuthModal,
+      refreshUser,
+      signIn,
+      startTestSession,
+      signOut,
+      user,
+    ],
   );
 
   return (
@@ -228,6 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error={authError}
         onClose={closeAuthModal}
         onSignIn={signIn}
+        onStartTestSession={startTestSession}
         open={authModalOpen}
       />
     </AuthContext.Provider>

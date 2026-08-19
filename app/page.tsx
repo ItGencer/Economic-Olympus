@@ -1,12 +1,16 @@
 'use client';
 
-import type { User } from '@supabase/supabase-js';
 import { FormEvent, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/components/AuthProvider';
 import SiteHeader from '@/components/SiteHeader';
-import { getSupabaseClient } from '@/lib/supabase';
+import TestVersionBadge from '@/components/TestVersionBadge';
+import {
+  ensurePlayableUser,
+  getSupabaseClient,
+  readPlayableUserName,
+} from '@/lib/supabase';
 
 type LobbyRpcResult = {
   game_id: string;
@@ -60,13 +64,6 @@ function readErrorMessage(error: unknown) {
   }
 
   return 'Невідома помилка';
-}
-
-function readDisplayName(user: User) {
-  const name =
-    user.user_metadata.full_name ?? user.user_metadata.name ?? user.email;
-
-  return typeof name === 'string' && name.trim() ? name : 'Гравець';
 }
 
 function BoardPreview() {
@@ -136,7 +133,7 @@ function BoardPreview() {
 export default function HomePage() {
   const router = useRouter();
   const joinInputRef = useRef<HTMLInputElement | null>(null);
-  const { openAuthModal, refreshUser, user } = useAuth();
+  const { refreshUser, user } = useAuth();
   const [busyAction, setBusyAction] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isBusy = Boolean(busyAction);
@@ -149,32 +146,28 @@ export default function HomePage() {
     return 'Створити гру';
   }, [busyAction]);
 
-  async function readCurrentUserOrOpenAuth() {
+  async function readCurrentPlayableUser() {
     const currentUser = user ?? (await refreshUser());
 
-    if (!currentUser) {
-      openAuthModal();
-      return null;
+    if (currentUser) {
+      return currentUser;
     }
 
-    return currentUser;
+    const testUser = await ensurePlayableUser();
+    await refreshUser();
+
+    return testUser;
   }
 
   async function handleCreateGame() {
     setError(null);
-
-    const currentUser = await readCurrentUserOrOpenAuth();
-
-    if (!currentUser) {
-      return;
-    }
-
     setBusyAction('create');
 
     try {
+      const currentUser = await readCurrentPlayableUser();
       const supabase = getSupabaseClient();
       const { data, error: createError } = await supabase.rpc('create_game', {
-        p_display_name: readDisplayName(currentUser),
+        p_display_name: readPlayableUserName(currentUser),
         p_max_players: 6,
       });
 
@@ -195,13 +188,6 @@ export default function HomePage() {
   }
 
   async function handleHeroJoinClick() {
-    const currentUser = await readCurrentUserOrOpenAuth();
-
-    if (!currentUser) {
-      openAuthModal();
-      return;
-    }
-
     joinInputRef.current?.focus();
   }
 
@@ -211,11 +197,6 @@ export default function HomePage() {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const joinCode = String(formData.get('code') ?? '').trim().toUpperCase();
-    const currentUser = await readCurrentUserOrOpenAuth();
-
-    if (!currentUser) {
-      return;
-    }
 
     if (!joinCode) {
       setError('Введіть код гри.');
@@ -227,9 +208,10 @@ export default function HomePage() {
     setError(null);
 
     try {
+      const currentUser = await readCurrentPlayableUser();
       const supabase = getSupabaseClient();
       const { data, error: joinError } = await supabase.rpc('join_game', {
-        p_display_name: readDisplayName(currentUser),
+        p_display_name: readPlayableUserName(currentUser),
         p_join_code: joinCode,
       });
 
@@ -268,6 +250,14 @@ export default function HomePage() {
                 переговори і контроль активів. Створюй партію, запрошуй друзів
                 і проходь шлях від перших угод до великого бізнесу.
               </p>
+              <div className="mt-6 max-w-2xl rounded-[18px] border border-amber-300/35 bg-amber-300/10 px-4 py-4 shadow-[0_0_24px_rgba(251,191,36,0.12)]">
+                <TestVersionBadge />
+                <p className="mt-3 text-sm font-semibold leading-6 text-amber-50">
+                  Альфа-режим для тестування: можна створити гру або
+                  приєднатися без Google-входу. Сайт автоматично створить
+                  тимчасову тестову сесію гравця.
+                </p>
+              </div>
 
               {error ? (
                 <p className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">

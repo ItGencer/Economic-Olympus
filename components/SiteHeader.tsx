@@ -8,6 +8,11 @@ import { useEffect, useMemo, useState } from 'react';
 import AuthButton from '@/components/AuthButton';
 import { useAuth } from '@/components/AuthProvider';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import TestVersionBadge from '@/components/TestVersionBadge';
+import {
+  isAnonymousUser,
+  readPlayableUserName,
+} from '@/lib/supabase';
 
 type HeaderLink = {
   href: string;
@@ -22,14 +27,7 @@ type SiteHeaderProps = {
 const DEFAULT_EXTRA_LINKS: HeaderLink[] = [];
 
 function readUserName(user: ReturnType<typeof useAuth>['user']) {
-  if (!user) {
-    return '';
-  }
-
-  const metadata = user.user_metadata;
-  const name = metadata.full_name ?? metadata.name ?? user.email;
-
-  return typeof name === 'string' && name.trim() ? name : 'Користувач';
+  return user ? readPlayableUserName(user) : '';
 }
 
 function readAvatarUrl(user: ReturnType<typeof useAuth>['user']) {
@@ -69,6 +67,7 @@ export function SiteHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const userName = readUserName(user);
   const avatarUrl = readAvatarUrl(user);
+  const testMode = isAnonymousUser(user);
   const initial = userName.trim().charAt(0).toUpperCase() || 'U';
   const containerClass =
     maxWidth === 'wide' ? 'max-w-[1600px]' : 'max-w-7xl';
@@ -100,22 +99,25 @@ export function SiteHeader({
       <div
         className={`mx-auto flex w-full ${containerClass} items-center justify-between gap-3 px-4 py-3 sm:px-6`}
       >
-        <Link
-          className="neo-heading flex min-w-0 items-center gap-2 text-base font-bold tracking-normal text-violet-50 transition hover:text-fuchsia-200 sm:text-lg"
-          href="/"
-        >
-          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-amber-300/55 bg-white shadow-[0_0_18px_rgba(192,132,252,0.32)]">
-            <Image
-              alt=""
-              className="h-full w-full object-cover"
-              height={36}
-              priority
-              src="/economic_olympus_logo.png"
-              width={36}
-            />
-          </span>
-          <span className="truncate">Economic Olympus</span>
-        </Link>
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            className="neo-heading flex min-w-0 items-center gap-2 text-base font-bold tracking-normal text-violet-50 transition hover:text-fuchsia-200 sm:text-lg"
+            href="/"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-amber-300/55 bg-white shadow-[0_0_18px_rgba(192,132,252,0.32)]">
+              <Image
+                alt=""
+                className="h-full w-full object-cover"
+                height={36}
+                priority
+                src="/economic_olympus_logo.png"
+                width={36}
+              />
+            </span>
+            <span className="truncate">Economic Olympus</span>
+          </Link>
+          <TestVersionBadge className="hidden shrink-0 lg:inline-flex" />
+        </div>
 
         <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-300 min-[769px]:flex">
           {links.map((link) => {
@@ -224,6 +226,9 @@ export function SiteHeader({
                         <p className="truncate text-xs font-semibold text-slate-500">
                           {user.email}
                         </p>
+                      ) : null}
+                      {testMode ? (
+                        <TestVersionBadge className="mt-2" />
                       ) : null}
                     </div>
                   </div>

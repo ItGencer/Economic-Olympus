@@ -20,7 +20,7 @@ import {
   normalizeAvatarStyle,
   type PlayerAvatarStyle,
 } from '@/lib/playerAvatarConfig';
-import { getSupabaseClient, requireAuthenticatedUser } from '@/lib/supabase';
+import { ensurePlayableUser, getSupabaseClient } from '@/lib/supabase';
 import type {
   Company,
   CompanyId,
@@ -1226,7 +1226,7 @@ function PendingActionPanel({
       setError(null);
 
       try {
-        await requireAuthenticatedUser();
+        await ensurePlayableUser();
 
         const supabase = getSupabaseClient();
         const { data, error: rpcError } = await supabase.rpc(rpcName, args);

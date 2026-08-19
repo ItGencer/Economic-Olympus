@@ -3,16 +3,13 @@
 import Link from 'next/link';
 
 import { useAuth } from '@/components/AuthProvider';
+import {
+  isAnonymousUser,
+  readPlayableUserName,
+} from '@/lib/supabase';
 
 function readUserName(user: ReturnType<typeof useAuth>['user']) {
-  if (!user) {
-    return '';
-  }
-
-  const metadata = user.user_metadata;
-  const name = metadata.full_name ?? metadata.name ?? user.email;
-
-  return typeof name === 'string' && name.trim() ? name : 'Користувач';
+  return user ? readPlayableUserName(user) : '';
 }
 
 function readAvatarUrl(user: ReturnType<typeof useAuth>['user']) {
@@ -29,6 +26,7 @@ export function AuthButton() {
   const { loading, openAuthModal, signOut, user } = useAuth();
   const userName = readUserName(user);
   const avatarUrl = readAvatarUrl(user);
+  const testMode = isAnonymousUser(user);
   const initial = userName.trim().charAt(0).toUpperCase() || 'U';
 
   if (loading) {
@@ -72,6 +70,11 @@ export function AuthButton() {
         <span className="hidden max-w-36 truncate text-sm font-semibold text-slate-200 lg:block">
           {userName}
         </span>
+        {testMode ? (
+          <span className="hidden rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black uppercase text-amber-100 xl:inline-flex">
+            Тест
+          </span>
+        ) : null}
       </Link>
       <button
         className="neo-button inline-flex h-10 items-center justify-center rounded-[16px] border border-violet-300/35 bg-[#181824]/80 px-3 text-sm font-semibold text-violet-50 transition hover:border-fuchsia-300/70"
