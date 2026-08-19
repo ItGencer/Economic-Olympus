@@ -1252,6 +1252,17 @@ function PrivatePlayerStatsModal({
   );
 }
 
+function createAdvertisingImageOptions() {
+  const values = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
+  }
+
+  return values.slice(0, 3);
+}
+
 function AdvertisingOfferCard({
   action,
   activePlayer,
@@ -1271,10 +1282,18 @@ function AdvertisingOfferCard({
   isActiveAction: boolean;
   runRpc: (rpcName: string, args: RpcArgs) => Promise<void>;
 }) {
-  const [valueImeg, setValueImeg] = useState(1);
+  const [options, setOptions] = useState<number[]>([1, 2, 3]);
+  const [valueImeg, setValueImeg] = useState<number>(1);
 
   useEffect(() => {
-    setValueImeg(1);
+    const pool = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const nextOptions = pool.slice(0, 3);
+    setOptions(nextOptions);
+    setValueImeg(nextOptions[0]);
   }, [action.id]);
 
   const selectImageGain = useCallback((valueCount: number) => {
@@ -1283,9 +1302,7 @@ function AdvertisingOfferCard({
 
   const unitPrice = 1500;
   const amountDue = valueImeg * unitPrice;
-  const balanceAfter = (activePlayer?.balance ?? 0) - amountDue;
   const canAfford = Boolean(activePlayer && activePlayer.balance >= amountDue);
-  const valueCountOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-[clamp(12px,4vw,40px)] backdrop-blur-sm">
@@ -1317,11 +1334,11 @@ function AdvertisingOfferCard({
               Коефіцієнти іміджу
             </p>
             <p className="text-xs font-bold text-slate-400">
-              Оберіть від +1 до +9
+              Оберіть один з трьох варіантів
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            {valueCountOptions.map((valueCount) => {
+            {options.map((valueCount) => {
               const selected = valueImeg === valueCount;
 
               return (
@@ -1336,56 +1353,12 @@ function AdvertisingOfferCard({
                   )}
                   key={valueCount}
                   onClick={() => selectImageGain(valueCount)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      selectImageGain(valueCount);
-                    }
-                  }}
-                  onMouseDown={() => selectImageGain(valueCount)}
-                  onPointerDown={() => selectImageGain(valueCount)}
                   type="button"
                 >
                   +{valueCount}
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-[20px] border border-emerald-300/25 bg-emerald-400/8 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <p className="mb-3 px-1 text-xs font-black uppercase tracking-normal text-emerald-100">
-            Підсумок вибору
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
-                Обрано іміджу
-              </p>
-              <p className="mt-1 text-xl font-black text-white">
-                +{formatInteger(valueImeg)}
-              </p>
-            </div>
-            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
-                До сплати
-              </p>
-              <p className="mt-1 text-xl font-black text-fuchsia-100">
-                {formatMoney(amountDue)}
-              </p>
-            </div>
-            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
-                Баланс після
-              </p>
-              <p
-                className={joinClassNames(
-                  'mt-1 text-xl font-black',
-                  balanceAfter < 0 ? 'text-rose-200' : 'text-emerald-200',
-                )}
-              >
-                {formatMoney(balanceAfter)}
-              </p>
-            </div>
           </div>
         </div>
 
