@@ -20,7 +20,10 @@ import {
   normalizeAvatarStyle,
   type PlayerAvatarStyle,
 } from '@/lib/playerAvatarConfig';
-import { ensurePlayableUser, getSupabaseClient } from '@/lib/supabase';
+import {
+  ensurePlayableUser,
+  runPlayableRpc,
+} from '@/lib/supabase';
 import type {
   Company,
   CompanyId,
@@ -44,6 +47,14 @@ type CompanyCatalogItem = {
   name: string;
   sharePrice: number;
   totalShares: number;
+};
+type TaxPaymentRow = {
+  description: string;
+  due: number;
+  name: string;
+  number: number;
+  penalty: number;
+  total: number;
 };
 
 const COMPANY_SHARE_POOL = 2000;
@@ -336,6 +347,7 @@ const pendingActionLabels: Record<PendingAction['type'], string> = {
   outer_ring_choice: 'Перехід кола',
   random_event: 'Random',
   salary: 'Зарплата',
+  tax_payment: 'Податкова',
   tender_purchase: 'Тендер',
 };
 
@@ -527,6 +539,28 @@ function readPayloadNumberArray(payload: Record<string, unknown>, key: string) {
   );
 }
 
+function readTaxPaymentRows(payload: Record<string, unknown>) {
+  const value = payload.rows;
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isRecord).map((row, index): TaxPaymentRow => {
+    const description = readPayloadString(row, 'description');
+    const name = readPayloadString(row, 'name', description || 'Податок');
+
+    return {
+      description: description || name,
+      due: readPayloadNumber(row, 'due'),
+      name,
+      number: readPayloadNumber(row, 'number', index + 1),
+      penalty: readPayloadNumber(row, 'penalty'),
+      total: readPayloadNumber(row, 'total'),
+    };
+  });
+}
+
 function parseRpcJson(value: unknown): unknown {
   if (typeof value !== 'string') {
     return value;
@@ -652,6 +686,19 @@ function buildOptimisticPlayerSnapshot(
     };
   }
 
+  if (rpcName === 'resolve_tax_payment' && action.type === 'tax_payment') {
+    const totalDue = readPayloadNumber(action.payload, 'totalDue');
+    const balance = player.balance - totalDue;
+
+    return {
+      ...player,
+      balance,
+      debtLocked: balance < 0,
+      successfulDeals: balance < 0 ? 0 : player.successfulDeals,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   return null;
 }
 
@@ -692,6 +739,7 @@ function buildActionDetails(action: PendingAction) {
     ['relationship', readPayloadValue(action.payload, 'relationship')],
     ['successfulDeals', readPayloadValue(action.payload, 'successfulDeals')],
     ['balance', readPayloadValue(action.payload, 'balance')],
+    ['totalDue', readPayloadValue(action.payload, 'totalDue')],
     ['targetCellId', readPayloadValue(action.payload, 'targetCellId')],
   ];
 
@@ -849,13 +897,15 @@ function PrivatePlayerStatsModal({
     setProfileSaving(true);
 
     try {
-      const supabase = getSupabaseClient();
-      const { data, error: saveError } = await supabase.rpc('update_player_profile', {
-        p_game_id: gameState.gameId,
-        p_display_name: normalizedDisplayName,
-        p_avatar_style: avatarStyle,
-        p_avatar_color: avatarColor,
-      });
+      const { data, error: saveError } = await runPlayableRpc(
+        'update_player_profile',
+        {
+          p_game_id: gameState.gameId,
+          p_display_name: normalizedDisplayName,
+          p_avatar_style: avatarStyle,
+          p_avatar_color: avatarColor,
+        },
+      );
 
       if (saveError) {
         throw saveError;
@@ -1228,8 +1278,7 @@ function PendingActionPanel({
       try {
         await ensurePlayableUser();
 
-        const supabase = getSupabaseClient();
-        const { data, error: rpcError } = await supabase.rpc(rpcName, args);
+        const { data, error: rpcError } = await runPlayableRpc(rpcName, args);
 
         if (rpcError) {
           throw rpcError;
@@ -1474,6 +1523,27 @@ function PendingActionPanel({
       shareCount > 0 &&
       shareCount <= companyMaxPurchasableShares,
   );
+  const taxRows = readTaxPaymentRows(action.payload);
+  const taxPlayerName = readPayloadString(
+    action.payload,
+    'playerName',
+    activePlayer?.name ?? 'Гравець',
+  );
+  const taxBalanceBefore = readPayloadNumber(
+    action.payload,
+    'balanceBefore',
+    activePlayer?.balance ?? 0,
+  );
+  const taxTotalDue = readPayloadNumber(
+    action.payload,
+    'totalDue',
+    taxRows.reduce((total, row) => total + row.total, 0),
+  );
+  const taxBalanceAfter = readPayloadNumber(
+    action.payload,
+    'balanceAfter',
+    taxBalanceBefore - taxTotalDue,
+  );
   const outerRingMessage = readPayloadString(
     action.payload,
     'message',
@@ -1555,6 +1625,135 @@ function PendingActionPanel({
               type="button"
             >
               Відмовляюсь
+            </button>
+          </div>
+
+          {error ? (
+            <p
+              aria-live="polite"
+              className="mt-4 rounded-md border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-sm font-bold text-rose-100"
+            >
+              {error}
+            </p>
+          ) : null}
+        </section>
+      </div>
+    );
+  }
+
+  if (action.type === 'tax_payment') {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-[clamp(12px,4vw,40px)] backdrop-blur-sm">
+        <section className="neo-panel pointer-events-auto w-full max-w-[860px] rounded-[22px] border border-violet-300/45 bg-[#181624]/96 p-[clamp(16px,4vw,28px)] text-slate-100 shadow-[0_28px_90px_rgba(12,8,28,0.72),0_0_48px_rgba(168,85,247,0.24)] ring-1 ring-white/10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-normal text-violet-200">
+                Податкова
+              </p>
+              <h2 className="mt-1 truncate text-3xl font-black tracking-normal text-white">
+                {taxPlayerName}
+              </h2>
+              <p className="mt-2 text-sm font-semibold text-slate-300">
+                Поточний баланс:{' '}
+                <span className="font-black text-white">
+                  {formatMoney(taxBalanceBefore)}
+                </span>
+              </p>
+            </div>
+            <span className="shrink-0 rounded bg-white/95 px-3 py-1.5 text-xs font-black text-slate-900 shadow-sm">
+              {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+            </span>
+          </div>
+
+          <p className="mt-5 rounded-[16px] border border-amber-300/35 bg-amber-400/12 px-4 py-3 text-sm font-bold leading-6 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            За невчасне сплачення податків. Повинні сплатити штраф
+          </p>
+
+          <div className="mt-5 overflow-x-auto rounded-[18px] border border-violet-300/30 bg-slate-950/45">
+            <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-violet-300/25 bg-violet-400/10 text-xs uppercase tracking-normal text-violet-100">
+                  <th className="w-14 px-4 py-3 font-black">№</th>
+                  <th className="px-4 py-3 font-black">Перелік податків</th>
+                  <th className="px-4 py-3 text-right font-black">
+                    До сплати
+                  </th>
+                  <th className="px-4 py-3 text-right font-black">
+                    Штраф за несплату
+                  </th>
+                  <th className="px-4 py-3 text-right font-black">
+                    Сума до сплати
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {taxRows.map((row) => (
+                  <tr
+                    className="border-b border-violet-300/15 text-slate-100"
+                    key={`${row.number}-${row.name}`}
+                  >
+                    <td className="px-4 py-3 font-black text-violet-200">
+                      {formatInteger(row.number)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-black text-white">{row.name}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        {row.description}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-100">
+                      {formatMoney(row.due)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-amber-200">
+                      {formatMoney(row.penalty)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-white">
+                      {formatMoney(row.total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-violet-500/15 text-white">
+                  <td
+                    className="px-4 py-4 text-right text-sm font-black"
+                    colSpan={4}
+                  >
+                    Підсумок
+                  </td>
+                  <td className="px-4 py-4 text-right text-lg font-black text-amber-100">
+                    {formatMoney(taxTotalDue)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/35 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                Баланс після сплати
+              </p>
+              <p
+                className={joinClassNames(
+                  'mt-1 text-xl font-black',
+                  taxBalanceAfter < 0 ? 'text-rose-200' : 'text-emerald-200',
+                )}
+              >
+                {formatMoney(taxBalanceAfter)}
+              </p>
+            </div>
+            <button
+              className="h-12 rounded-[16px] bg-violet-500 px-8 text-sm font-black text-white shadow-[0_0_26px_rgba(168,85,247,0.35)] transition duration-300 hover:bg-violet-400 hover:shadow-[0_0_34px_rgba(192,132,252,0.55)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+              disabled={!canAct || busy}
+              onClick={() =>
+                runRpc('resolve_tax_payment', {
+                  p_game_id: gameState.gameId,
+                })
+              }
+              type="button"
+            >
+              {busy ? 'Сплачуємо...' : 'Сплатити'}
             </button>
           </div>
 
@@ -3097,8 +3296,7 @@ export default function PlayPage({ params }: PlayPageProps) {
 
       async function resolveBotTurn() {
         try {
-          const supabase = getSupabaseClient();
-          const { error: botError } = await supabase.rpc('resolve_bot_turn', {
+          const { error: botError } = await runPlayableRpc('resolve_bot_turn', {
             p_game_id: gameId,
           });
 

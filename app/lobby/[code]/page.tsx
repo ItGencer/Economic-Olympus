@@ -13,6 +13,7 @@ import {
   getSupabaseSetupErrorMessage,
   isSupabaseConfigured,
   readPlayableUserName,
+  runPlayableRpc,
 } from '@/lib/supabase';
 
 type GameStatus = 'lobby' | 'in_progress' | 'finished';
@@ -234,8 +235,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
           setDisplayName(playerName);
         }
 
-        const supabase = getSupabaseClient();
-        const { data, error: createError } = await supabase.rpc('create_game', {
+        const { data, error: createError } = await runPlayableRpc('create_game', {
           p_display_name: playerName,
           p_max_players: 6,
         });
@@ -411,8 +411,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
       const user = await ensurePlayableUser();
       setCurrentUserId(user.id);
 
-      const supabase = getSupabaseClient();
-      const { data, error: joinError } = await supabase.rpc('join_game', {
+      const { data, error: joinError } = await runPlayableRpc('join_game', {
         p_display_name: displayName.trim() || readPlayableUserName(user),
         p_join_code: game.join_code,
       });
@@ -442,8 +441,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      const { error: addBotError } = await supabase.rpc('add_bot', {
+      const { error: addBotError } = await runPlayableRpc('add_bot', {
         p_game_id: game.id,
       });
 
@@ -468,8 +466,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      const { error: removeBotError } = await supabase.rpc('remove_bot', {
+      const { error: removeBotError } = await runPlayableRpc('remove_bot', {
         p_player_id: playerId,
       });
 
@@ -494,8 +491,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      const { error: startError } = await supabase.rpc('start_game', {
+      const { error: startError } = await runPlayableRpc('start_game', {
         p_game_id: game.id,
       });
 
@@ -529,8 +525,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      const { error: endError } = await supabase.rpc('end_game', {
+      const { error: endError } = await runPlayableRpc('end_game', {
         p_game_id: game.id,
       });
 
@@ -555,8 +550,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      const { error: leaveError } = await supabase.rpc('leave_game', {
+      const { error: leaveError } = await runPlayableRpc('leave_game', {
         p_game_id: game.id,
       });
 

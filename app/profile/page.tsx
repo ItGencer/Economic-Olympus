@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '@/components/AuthProvider';
 import SiteHeader from '@/components/SiteHeader';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getSupabaseClient, runPlayableRpc } from '@/lib/supabase';
 
 type ProfileGameStatus = 'lobby' | 'in_progress' | 'finished';
 
@@ -337,8 +337,7 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      const { error: endError } = await supabase.rpc('end_game', {
+      const { error: endError } = await runPlayableRpc('end_game', {
         p_game_id: game.id,
       });
 

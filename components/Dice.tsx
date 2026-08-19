@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { ensurePlayableUser, getSupabaseClient } from '@/lib/supabase';
+import { ensurePlayableUser, runPlayableRpc } from '@/lib/supabase';
 import type { CellId, GameId, GameState, PlayerId } from '@/types';
 
 type RollDiceResult = {
@@ -150,10 +150,12 @@ export function Dice({
     try {
       await ensurePlayableUser();
 
-      const supabase = getSupabaseClient();
-      const { data, error: rollError } = await supabase.rpc('roll_dice', {
+      const { data, error: rollError } = await runPlayableRpc<RollDiceResult>(
+        'roll_dice',
+        {
         p_game_id: gameId,
-      });
+        },
+      );
 
       if (rollError) {
         throw rollError;

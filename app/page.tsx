@@ -8,8 +8,8 @@ import SiteHeader from '@/components/SiteHeader';
 import TestVersionBadge from '@/components/TestVersionBadge';
 import {
   ensurePlayableUser,
-  getSupabaseClient,
   readPlayableUserName,
+  runPlayableRpc,
 } from '@/lib/supabase';
 
 type LobbyRpcResult = {
@@ -165,8 +165,7 @@ export default function HomePage() {
 
     try {
       const currentUser = await readCurrentPlayableUser();
-      const supabase = getSupabaseClient();
-      const { data, error: createError } = await supabase.rpc('create_game', {
+      const { data, error: createError } = await runPlayableRpc('create_game', {
         p_display_name: readPlayableUserName(currentUser),
         p_max_players: 6,
       });
@@ -209,8 +208,7 @@ export default function HomePage() {
 
     try {
       const currentUser = await readCurrentPlayableUser();
-      const supabase = getSupabaseClient();
-      const { data, error: joinError } = await supabase.rpc('join_game', {
+      const { data, error: joinError } = await runPlayableRpc('join_game', {
         p_display_name: readPlayableUserName(currentUser),
         p_join_code: joinCode,
       });

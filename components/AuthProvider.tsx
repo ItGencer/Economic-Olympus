@@ -13,10 +13,12 @@ import type { User } from '@supabase/supabase-js';
 
 import AuthModal from '@/components/AuthModal';
 import {
+  clearStoredTestUser,
   ensurePlayableUser,
   getSupabaseConfigStatus,
   getSupabaseClient,
   getSupabaseSetupErrorMessage,
+  readStoredTestUser,
   signInWithGoogle,
   signOut as signOutFromSupabase,
 } from '@/lib/supabase';
@@ -95,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      const nextUser = data.session?.user ?? null;
+      const nextUser = data.session?.user ?? readStoredTestUser();
       setUser(nextUser);
 
       if (nextUser) {
@@ -131,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthError(error.message);
         }
 
-        setUser(data.session?.user ?? null);
+        setUser(data.session?.user ?? readStoredTestUser());
       })
       .finally(() => {
         if (mounted) {
@@ -212,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!supabaseConfig.configured) {
       setAuthError(null);
+      clearStoredTestUser();
       setUser(null);
       return;
     }
@@ -221,6 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await signOutFromSupabase();
+      clearStoredTestUser();
       setUser(null);
     } catch (error) {
       setAuthError(readErrorMessage(error));

@@ -249,6 +249,7 @@ export type PendingActionType =
   | 'company_share_purchase'
   | 'negative_reputation'
   | 'salary'
+  | 'tax_payment'
   | 'outer_ring_choice'
   | 'ceo_election';
 

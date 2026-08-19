@@ -7,6 +7,7 @@ import {
 } from '@supabase/supabase-js';
 
 let browserClient: SupabaseClient | null = null;
+const TEST_PLAYER_ID_KEY = 'economic-olympus-test-player-id';
 const TEST_PLAYER_NAME_KEY = 'economic-olympus-test-player-name';
 
 export const SUPABASE_ENV_KEYS = [
@@ -133,8 +134,52 @@ function createTestPlayerName() {
   return `Тестовий гравець ${suffix}`;
 }
 
+function createFallbackUuid() {
+  const bytes = Array.from({ length: 16 }, () =>
+    Math.floor(Math.random() * 256),
+  );
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = bytes.map((byte) => byte.toString(16).padStart(2, '0'));
+
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
+}
+
+function createTestPlayerId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return createFallbackUuid();
+}
+
+function readTestPlayerId() {
+  if (typeof window === 'undefined') {
+    return createTestPlayerId();
+  }
+
+  const existingId = window.localStorage.getItem(TEST_PLAYER_ID_KEY);
+
+  if (existingId?.trim()) {
+    return existingId.trim();
+  }
+
+  const nextId = createTestPlayerId();
+  window.localStorage.setItem(TEST_PLAYER_ID_KEY, nextId);
+
+  return nextId;
+}
+
 export function isAnonymousUser(user: User | null | undefined) {
-  return Boolean(user?.is_anonymous);
+  return Boolean(user?.is_anonymous || user?.user_metadata?.test_version);
 }
 
 export function readPlayableUserName(user: User | null | undefined) {
@@ -169,6 +214,48 @@ function readTestPlayerName() {
   return nextName;
 }
 
+function readLocalTestUser(): User {
+  const name = readTestPlayerName();
+
+  return {
+    app_metadata: {
+      provider: 'test',
+      providers: ['test'],
+    },
+    aud: 'authenticated',
+    created_at: new Date(0).toISOString(),
+    email: undefined,
+    id: readTestPlayerId(),
+    is_anonymous: true,
+    role: 'authenticated',
+    updated_at: new Date(0).toISOString(),
+    user_metadata: {
+      full_name: name,
+      name,
+      test_version: true,
+    },
+  } as User;
+}
+
+export function readStoredTestUser(): User | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.localStorage.getItem(TEST_PLAYER_ID_KEY)
+    ? readLocalTestUser()
+    : null;
+}
+
+export function clearStoredTestUser() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(TEST_PLAYER_ID_KEY);
+  window.localStorage.removeItem(TEST_PLAYER_NAME_KEY);
+}
+
 export async function requireAuthenticatedUser(): Promise<User> {
   const user = await readSessionUser();
 
@@ -186,31 +273,44 @@ export async function ensurePlayableUser(): Promise<User> {
     return currentUser;
   }
 
+  return readLocalTestUser();
+}
+
+type PlayableRpcArgs = Record<string, unknown>;
+type PlayableRpcError = {
+  code?: string;
+  details?: string;
+  hint?: string;
+  message: string;
+};
+
+export async function runPlayableRpc<T = unknown>(
+  rpcName: string,
+  args: PlayableRpcArgs = {},
+): Promise<{ data: T | null; error: PlayableRpcError | null }> {
   const supabase = getSupabaseClient();
-  const displayName = readTestPlayerName();
-  const { data, error } = await supabase.auth.signInAnonymously({
-    options: {
-      data: {
-        full_name: displayName,
-        name: displayName,
-        test_version: true,
-      },
-    },
+  const currentUser = await readSessionUser();
+
+  if (currentUser && !isAnonymousUser(currentUser)) {
+    const { data, error } = await supabase.rpc(rpcName, args);
+
+    return {
+      data: (data ?? null) as T | null,
+      error,
+    };
+  }
+
+  const testUser = currentUser ?? readLocalTestUser();
+  const { data, error } = await supabase.rpc('run_test_rpc', {
+    p_args: args,
+    p_rpc_name: rpcName,
+    p_test_user_id: testUser.id,
   });
 
-  if (error) {
-    throw new Error(
-      `${error.message} У Supabase Auth потрібно увімкнути Anonymous sign-ins для тестової версії гри.`,
-    );
-  }
-
-  const user = data.user ?? data.session?.user ?? null;
-
-  if (!user) {
-    throw new Error('Не вдалося створити тестову сесію гравця.');
-  }
-
-  return user;
+  return {
+    data: (data ?? null) as T | null,
+    error,
+  };
 }
 
 export async function signInWithGoogle(): Promise<void> {
@@ -233,4 +333,6 @@ export async function signOut(): Promise<void> {
   if (error) {
     throw error;
   }
+
+  clearStoredTestUser();
 }
