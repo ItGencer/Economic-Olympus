@@ -90,8 +90,7 @@ export interface TaxCellParams extends BaseCellParams {
 }
 
 export interface AdvertisingCellParams extends BaseCellParams {
-  priceMin: number;
-  priceMax: number;
+  unitPrice: number;
   imageMin: number;
   imageMax: number;
 }

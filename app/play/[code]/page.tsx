@@ -671,6 +671,23 @@ function buildOptimisticPlayerSnapshot(
   }
 
   if (
+    rpcName === 'resolve_advertising_offer' &&
+    action.type === 'advertising_offer' &&
+    args.p_decision === 'accept'
+  ) {
+    const imageGain = Math.max(1, Math.min(9, Number(args.p_image_gain) || 1));
+    const balance = player.balance - imageGain * 1500;
+
+    return {
+      ...player,
+      balance,
+      debtLocked: balance < 0,
+      image: player.image + imageGain,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  if (
     rpcName === 'resolve_salary' &&
     action.type === 'salary' &&
     args.p_decision === 'confirm'
@@ -1235,6 +1252,193 @@ function PrivatePlayerStatsModal({
   );
 }
 
+function AdvertisingOfferCard({
+  action,
+  activePlayer,
+  busy,
+  canAct,
+  error,
+  gameId,
+  isActiveAction,
+  runRpc,
+}: {
+  action: PendingAction;
+  activePlayer: Player | null;
+  busy: boolean;
+  canAct: boolean;
+  error: string | null;
+  gameId: GameState['gameId'];
+  isActiveAction: boolean;
+  runRpc: (rpcName: string, args: RpcArgs) => Promise<void>;
+}) {
+  const [valueImeg, setValueImeg] = useState(1);
+
+  useEffect(() => {
+    setValueImeg(1);
+  }, [action.id]);
+
+  const selectImageGain = useCallback((valueCount: number) => {
+    setValueImeg(valueCount);
+  }, []);
+
+  const unitPrice = 1500;
+  const amountDue = valueImeg * unitPrice;
+  const balanceAfter = (activePlayer?.balance ?? 0) - amountDue;
+  const canAfford = Boolean(activePlayer && activePlayer.balance >= amountDue);
+  const valueCountOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-[clamp(12px,4vw,40px)] backdrop-blur-sm">
+      <section className="neo-panel pointer-events-auto w-full max-w-[600px] rounded-[22px] border border-fuchsia-300/45 bg-[#171421]/96 p-[clamp(16px,4vw,26px)] text-slate-100 shadow-[0_28px_90px_rgba(12,8,28,0.72),0_0_52px_rgba(192,132,252,0.24)] ring-1 ring-white/10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+              Блок реклами
+            </p>
+            <h2 className="neo-heading mt-1 text-3xl font-black tracking-normal text-white">
+              Реклама
+            </h2>
+            <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-slate-300">
+              Оберіть, скільки іміджу купити. Один пункт іміджу коштує{' '}
+              {formatMoney(unitPrice)}.
+            </p>
+          </div>
+          <span
+            className="shrink-0 rounded px-3 py-1.5 text-xs font-black shadow-sm"
+            style={{ backgroundColor: '#f8fafc', color: '#020617' }}
+          >
+            {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+          </span>
+        </div>
+
+        <div className="mt-6 rounded-[20px] border border-fuchsia-300/35 bg-slate-950/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs font-black uppercase tracking-normal text-fuchsia-100">
+              Коефіцієнти іміджу
+            </p>
+            <p className="text-xs font-bold text-slate-400">
+              Оберіть від +1 до +9
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {valueCountOptions.map((valueCount) => {
+              const selected = valueImeg === valueCount;
+
+              return (
+                <button
+                  aria-pressed={selected}
+                  data-selected={selected ? 'true' : 'false'}
+                  className={joinClassNames(
+                    'h-16 rounded-[18px] border text-xl font-black transition duration-300 active:scale-[0.97] disabled:cursor-not-allowed',
+                    selected
+                      ? 'border-fuchsia-100 bg-violet-500 text-white shadow-[0_0_30px_rgba(168,85,247,0.55)] ring-2 ring-fuchsia-100/80'
+                      : 'border-violet-300/35 bg-slate-950/55 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-fuchsia-300/70 hover:bg-violet-500/20 hover:text-white',
+                  )}
+                  key={valueCount}
+                  onClick={() => selectImageGain(valueCount)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      selectImageGain(valueCount);
+                    }
+                  }}
+                  onMouseDown={() => selectImageGain(valueCount)}
+                  onPointerDown={() => selectImageGain(valueCount)}
+                  type="button"
+                >
+                  +{valueCount}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-[20px] border border-emerald-300/25 bg-emerald-400/8 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <p className="mb-3 px-1 text-xs font-black uppercase tracking-normal text-emerald-100">
+            Підсумок вибору
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                Обрано іміджу
+              </p>
+              <p className="mt-1 text-xl font-black text-white">
+                +{formatInteger(valueImeg)}
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                До сплати
+              </p>
+              <p className="mt-1 text-xl font-black text-fuchsia-100">
+                {formatMoney(amountDue)}
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                Баланс після
+              </p>
+              <p
+                className={joinClassNames(
+                  'mt-1 text-xl font-black',
+                  balanceAfter < 0 ? 'text-rose-200' : 'text-emerald-200',
+                )}
+              >
+                {formatMoney(balanceAfter)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {!canAfford ? (
+          <p className="mt-4 rounded-[14px] border border-rose-300/35 bg-rose-500/15 px-4 py-3 text-center text-sm font-bold text-rose-100">
+            Недостатньо коштів для обраної реклами.
+          </p>
+        ) : null}
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            className="h-12 rounded-[16px] bg-violet-500 px-4 text-sm font-black text-white shadow-[0_0_26px_rgba(168,85,247,0.35)] transition duration-300 hover:bg-violet-400 hover:shadow-[0_0_34px_rgba(192,132,252,0.55)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+            disabled={!canAct || busy || !canAfford}
+            onClick={() =>
+              runRpc('resolve_advertising_offer', {
+                p_decision: 'accept',
+                p_game_id: gameId,
+                p_image_gain: valueImeg,
+              })
+            }
+            type="button"
+          >
+            {busy ? 'Купуємо...' : 'Купити'}
+          </button>
+          <button
+            className="h-12 rounded-[16px] border border-violet-300/45 bg-slate-950/35 px-4 text-sm font-black text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:border-violet-200 hover:bg-violet-300/10 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:text-slate-500"
+            disabled={!canAct || busy}
+            onClick={() =>
+              runRpc('resolve_advertising_offer', {
+                p_decision: 'decline',
+                p_game_id: gameId,
+                p_image_gain: valueImeg,
+              })
+            }
+            type="button"
+          >
+            Відмова
+          </button>
+        </div>
+
+        {error ? (
+          <p
+            aria-live="polite"
+            className="mt-4 rounded-md border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-sm font-bold text-rose-100"
+          >
+            {error}
+          </p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 function PendingActionPanel({
   action,
   activePlayer,
@@ -1321,6 +1525,7 @@ function PendingActionPanel({
     } else {
       setShareCount(1);
     }
+
   }, [action?.id, action?.type, activePlayer?.balance]);
 
   if (!action) {
@@ -1554,11 +1759,6 @@ function PendingActionPanel({
     'successfulDeals',
     activePlayer?.successfulDeals ?? 0,
   );
-  const outerRingTargetCellId = readPayloadString(
-    action.payload,
-    'targetCellId',
-    'outer-image-01',
-  );
 
   if (action.type === 'outer_ring_choice' && canAct) {
     return (
@@ -1591,10 +1791,10 @@ function PendingActionPanel({
             </div>
             <div>
               <p className="text-xs uppercase tracking-normal text-slate-400">
-                Старт зовнішнього кола
+                Можливість
               </p>
               <p className="mt-1 text-lg font-black text-white">
-                {outerRingTargetCellId}
+                Є можливість перехід у зовнішнє коло
               </p>
             </div>
           </div>
@@ -1660,7 +1860,7 @@ function PendingActionPanel({
                 </span>
               </p>
             </div>
-            <span className="shrink-0 rounded bg-white/95 px-3 py-1.5 text-xs font-black text-slate-900 shadow-sm">
+            <span className="shrink-0 rounded bg-white px-3 py-1.5 text-xs font-black text-[#020617] shadow-sm">
               {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
             </span>
           </div>
@@ -2831,6 +3031,21 @@ function PendingActionPanel({
           </div>
         </section>
       </div>
+    );
+  }
+
+  if (action.type === 'advertising_offer') {
+    return (
+      <AdvertisingOfferCard
+        action={action}
+        activePlayer={activePlayer}
+        busy={busy}
+        canAct={canAct}
+        error={error}
+        gameId={gameState.gameId}
+        isActiveAction={isActiveAction}
+        runRpc={runRpc}
+      />
     );
   }
 

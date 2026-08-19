@@ -223,10 +223,9 @@
     "type": "advertising",
     "params": {
       "label": "Реклама",
-      "priceMin": 100,
-      "priceMax": 1000,
+      "unitPrice": 1500,
       "imageMin": 1,
-      "imageMax": 10
+      "imageMax": 9
     }
   },
   {
@@ -425,10 +424,9 @@
     "type": "advertising",
     "params": {
       "label": "Реклама",
-      "priceMin": 100,
-      "priceMax": 1000,
+      "unitPrice": 1500,
       "imageMin": 1,
-      "imageMax": 10
+      "imageMax": 9
     }
   },
   {
