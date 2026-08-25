@@ -1800,7 +1800,6 @@ function PendingActionPanel({
     reputationPhase === 'dice_rolled' ||
     reputationPhase === 'multiplier_ready';
   const salaryPhase = readPayloadString(action.payload, 'phase', 'initial');
-  const salaryDie = readPayloadNumber(action.payload, 'die');
   const salaryImage = readPayloadNumber(
     action.payload,
     'image',
@@ -1816,16 +1815,36 @@ function PendingActionPanel({
     'unit',
     salaryImage > 0 ? 1000 : salaryImage < 0 ? 100 : 0,
   );
-  const salaryAmount = readPayloadNumber(
+  const salaryStoredAmount = readPayloadNumber(
     action.payload,
     'amount',
-    salaryDie * salaryUnit,
+    Number.NaN,
   );
-  const salaryBalanceDelta = readPayloadNumber(
+  const salaryStoredBalanceDelta = readPayloadNumber(
     action.payload,
     'balanceDelta',
-    salaryKind === 'bonus' ? salaryAmount : salaryKind === 'fine' ? -salaryAmount : 0,
+    Number.NaN,
   );
+  const salaryDerivedAmountBase = Number.isFinite(salaryStoredAmount)
+    ? salaryStoredAmount
+    : Math.abs(Number.isFinite(salaryStoredBalanceDelta) ? salaryStoredBalanceDelta : 0);
+  const salaryDie = readPayloadNumber(
+    action.payload,
+    'die',
+    salaryUnit > 0 && salaryDerivedAmountBase > 0
+      ? Math.round(salaryDerivedAmountBase / salaryUnit)
+      : 0,
+  );
+  const salaryAmount = Number.isFinite(salaryStoredAmount)
+    ? salaryStoredAmount
+    : salaryDie * salaryUnit;
+  const salaryBalanceDelta = Number.isFinite(salaryStoredBalanceDelta)
+    ? salaryStoredBalanceDelta
+    : salaryKind === 'bonus'
+      ? salaryAmount
+      : salaryKind === 'fine'
+        ? -salaryAmount
+        : 0;
   const salaryBalanceBefore = readPayloadNumber(
     action.payload,
     'balanceBefore',
@@ -1836,7 +1855,11 @@ function PendingActionPanel({
     'balanceAfter',
     salaryBalanceBefore + salaryBalanceDelta,
   );
-  const salaryReadyToConfirm = salaryPhase === 'roll_ready';
+  const salaryHasResult =
+    salaryDie > 0 ||
+    Number.isFinite(salaryStoredAmount) ||
+    Number.isFinite(salaryStoredBalanceDelta);
+  const salaryReadyToConfirm = salaryPhase === 'roll_ready' || salaryHasResult;
   const companyName = readPayloadString(action.payload, 'name', 'Компанія');
   const companyTotalShares = Math.max(
     1,
@@ -2311,7 +2334,7 @@ function PendingActionPanel({
                 <D20Dice
                   className="shadow-emerald-950/30 ring-emerald-100/70"
                   rolling={busy && canAct && !salaryReadyToConfirm}
-                  value={salaryDie || null}
+                  value={salaryDie > 0 ? salaryDie : null}
                 />
 
                 <div className="min-w-0 space-y-3">
@@ -2347,7 +2370,7 @@ function PendingActionPanel({
                         d20
                       </p>
                       <p className="mt-1 text-lg font-black text-violet-700">
-                        {salaryDie || '?'}
+                        {salaryDie > 0 ? salaryDie : '?'}
                       </p>
                     </div>
                     <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
@@ -3160,7 +3183,7 @@ function PendingActionPanel({
 
             <div className="grid grid-cols-2 gap-2">
               <button
-                className="h-11 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                className="h-12 rounded-[16px] border border-emerald-200/70 bg-emerald-500 px-3 text-sm font-black text-white shadow-[0_0_24px_rgba(16,185,129,0.28)] transition duration-300 hover:bg-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-white/20 disabled:bg-slate-950/65 disabled:text-slate-300 disabled:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                 disabled={!canAct || busy || !canAffordImage}
                 onClick={() =>
                   runRpc('resolve_image_offer', {
@@ -3173,7 +3196,7 @@ function PendingActionPanel({
                 Згоден
               </button>
               <button
-                className="h-11 rounded-md border border-fuchsia-100/70 bg-slate-950/55 px-3 text-sm font-semibold text-fuchsia-50 shadow-lg shadow-slate-950/25 transition hover:border-white hover:bg-fuchsia-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-slate-950/25 disabled:text-slate-400 disabled:shadow-none"
+                className="h-12 rounded-[16px] border border-rose-200/70 bg-rose-500/16 px-3 text-sm font-black text-white shadow-[0_0_24px_rgba(244,63,94,0.18)] transition duration-300 hover:border-white hover:bg-rose-500/28 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-slate-950/45 disabled:text-slate-300 disabled:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                 disabled={!canAct || busy}
                 onClick={() =>
                   runRpc('resolve_image_offer', {

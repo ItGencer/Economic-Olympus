@@ -697,6 +697,17 @@ begin
       v_event_type := 'salary_resolved';
       v_message := 'Bot resolved salary';
       v_log_payload := jsonb_build_object(
+        'salaryDie', v_roll_die,
+        'salaryKind', case
+          when v_image > 0 then 'Премія'
+          when v_image < 0 then 'Штраф'
+          else 'Без змін'
+        end,
+        'salaryUnit', case
+          when v_image > 0 then 1000
+          when v_image < 0 then 100
+          else 0
+        end,
         'die', v_roll_die,
         'image', v_image,
         'amount', abs(v_amount),

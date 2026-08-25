@@ -87,6 +87,10 @@ const toneClasses: Record<EventTone, string> = {
 };
 
 const payloadLabels: Record<string, string> = {
+  salaryDie: 'd20',
+  salaryKind: 'Тип зарплати',
+  salaryUnit: 'Множник',
+  image: 'Імідж',
   amount: 'Сума',
   activePlayers: 'Активні',
   balanceAfter: 'Баланс',
@@ -195,7 +199,7 @@ function getPayloadItems(payload: Record<string, unknown>) {
       return value ? { key, value } : null;
     })
     .filter((item): item is { key: string; value: string } => Boolean(item))
-    .slice(0, 3);
+    .slice(0, 5);
 }
 
 export function GameLog({
