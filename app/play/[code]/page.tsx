@@ -12,6 +12,7 @@ import Dice from '@/components/Dice';
 import GameLog from '@/components/GameLog';
 import PlayerAvatarToken from '@/components/PlayerAvatarToken';
 import SiteHeader from '@/components/SiteHeader';
+import { useAuth } from '@/components/AuthProvider';
 import { useGameRealtime } from '@/hooks/useGameRealtime';
 import {
   avatarColorOptions,
@@ -22,6 +23,8 @@ import {
 } from '@/lib/playerAvatarConfig';
 import {
   ensurePlayableUser,
+  isAnonymousUser,
+  readStoredTestUser,
   runPlayableRpc,
 } from '@/lib/supabase';
 import type {
@@ -767,11 +770,15 @@ function buildActionDetails(action: PendingAction) {
 
 function SeatSwitcher({
   browserPlayerId,
+  canInspectBotCards = false,
   currentTurnPlayerId,
+  onInspectPlayer,
   players,
 }: {
   browserPlayerId: PlayerId | null;
+  canInspectBotCards?: boolean;
   currentTurnPlayerId: PlayerId | null;
+  onInspectPlayer?: (playerId: PlayerId) => void;
   players: Player[];
 }) {
   return (
@@ -828,6 +835,15 @@ function SeatSwitcher({
                 </span>
               </span>
             </span>
+            {canInspectBotCards && player.isBot ? (
+              <button
+                className="mt-2 h-8 rounded-[12px] border border-violet-300/35 bg-violet-500/15 px-2 text-[11px] font-black text-fuchsia-50 transition hover:border-fuchsia-200 hover:bg-violet-500/25 active:scale-[0.98]"
+                onClick={() => onInspectPlayer?.(player.id)}
+                type="button"
+              >
+                Картка бота
+              </button>
+            ) : null}
           </div>
         );
       })}
@@ -836,12 +852,16 @@ function SeatSwitcher({
 }
 
 function PrivatePlayerStatsModal({
+  canEditProfile = true,
+  eyebrow = 'Приватна статистика',
   gameState,
   onClose,
   onPlayerUpdated,
   open,
   player,
 }: {
+  canEditProfile?: boolean;
+  eyebrow?: string;
   gameState: GameState;
   onClose: () => void;
   onPlayerUpdated?: (stateSnapshot?: unknown) => Promise<void> | void;
@@ -858,6 +878,9 @@ function PrivatePlayerStatsModal({
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [profileSaveStatus, setProfileSaveStatus] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'token' | 'stocks' | 'assets'
+  >('overview');
 
   useEffect(() => {
     if (!open) {
@@ -870,6 +893,12 @@ function PrivatePlayerStatsModal({
     setProfileSaveError(null);
     setProfileSaveStatus(null);
   }, [open, player.avatarColor, player.avatarStyle, player.id, player.name]);
+
+  useEffect(() => {
+    if (open) {
+      setActiveTab('overview');
+    }
+  }, [open, player.id]);
 
   if (!open) {
     return null;
@@ -904,11 +933,30 @@ function PrivatePlayerStatsModal({
     avatarColor !== normalizeAvatarColor(player.avatarColor);
   const profileChanged = nameChanged || avatarChanged;
   const canSaveProfile =
+    canEditProfile &&
     profileChanged &&
     normalizedDisplayName.length >= 2 &&
     normalizedDisplayName.length <= 32;
+  const totalOwnedShares = companyRows.reduce(
+    (total, company) => total + company.ownedShares,
+    0,
+  );
+  const totalAvailableShares = companyRows.reduce(
+    (total, company) => total + company.availableShares,
+    0,
+  );
+  const tabItems = [
+    { id: 'overview', label: 'Огляд', value: formatMoney(player.balance) },
+    { id: 'token', label: 'Фішка', value: avatarStyleOptions.length },
+    { id: 'stocks', label: 'Акції', value: formatInteger(totalOwnedShares) },
+    { id: 'assets', label: 'Активи', value: tenders.length },
+  ] as const;
 
   async function handleSavePlayerProfile() {
+    if (!canEditProfile) {
+      return;
+    }
+
     setProfileSaveError(null);
     setProfileSaveStatus(null);
     setProfileSaving(true);
@@ -939,7 +987,7 @@ function PrivatePlayerStatsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#070710]/65 px-4 py-6 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#070710]/70 px-2 py-2 backdrop-blur-md sm:px-4 sm:py-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -950,16 +998,16 @@ function PrivatePlayerStatsModal({
       <section
         aria-labelledby="private-player-card-title"
         aria-modal="true"
-        className="neo-panel neo-modal-panel max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[20px] border border-violet-300/30 bg-white shadow-2xl shadow-slate-950/25"
+        className="neo-panel neo-modal-panel flex max-h-[calc(100dvh-16px)] w-full max-w-4xl flex-col overflow-hidden rounded-[20px] border border-violet-300/30 bg-[#171421]/98 shadow-2xl shadow-slate-950/25 sm:max-h-[92vh]"
         role="dialog"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-violet-300/20 px-5 py-4">
+        <header className="flex items-start justify-between gap-3 border-b border-violet-300/20 px-4 py-4 sm:px-5">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-normal text-emerald-700">
-              Приватна статистика
+            <p className="text-xs font-bold uppercase tracking-normal text-fuchsia-200">
+              {eyebrow}
             </p>
             <h2
-              className="mt-1 truncate text-2xl font-bold tracking-normal text-slate-950"
+              className="mt-1 break-words text-xl font-bold tracking-normal text-violet-50 sm:text-2xl"
               id="private-player-card-title"
             >
               {normalizedDisplayName || player.name}
@@ -975,10 +1023,39 @@ function PrivatePlayerStatsModal({
           </button>
         </header>
 
-        <div className="space-y-5 px-5 py-5">
-          <section className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-50 p-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-4">
+        <nav className="border-b border-violet-300/20 px-3 py-3 sm:px-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist">
+            {tabItems.map((tab) => {
+              const selected = activeTab === tab.id;
+
+              return (
+                <button
+                  aria-selected={selected}
+                  className={joinClassNames(
+                    'rounded-[16px] border px-3 py-2 text-left text-xs font-black uppercase tracking-normal transition active:scale-[0.98]',
+                    selected
+                      ? 'border-fuchsia-200 bg-violet-500/25 text-fuchsia-50 shadow-[0_0_26px_rgba(168,85,247,0.25)]'
+                      : 'border-violet-300/20 bg-slate-950/35 text-slate-400 hover:border-violet-300/50 hover:text-violet-50',
+                  )}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  role="tab"
+                  type="button"
+                >
+                  <span className="block">{tab.label}</span>
+                  <span className="mt-1 block truncate text-[11px] normal-case text-slate-400">
+                    {tab.value}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:space-y-5 sm:px-5 sm:py-5">
+          {activeTab === 'token' ? (
+            <section className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-3 sm:p-4">
+              <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
                 <PlayerAvatarToken
                   avatarColor={avatarColor}
                   avatarStyle={avatarStyle}
@@ -991,50 +1068,57 @@ function PrivatePlayerStatsModal({
                   <p className="text-xs font-bold uppercase tracking-normal text-fuchsia-200">
                     Фішка
                   </p>
-                  <h3 className="mt-1 text-lg font-bold tracking-normal text-slate-950">
+                  <h3 className="mt-1 break-words text-lg font-bold tracking-normal text-violet-50 sm:text-xl">
                     {normalizedDisplayName || player.name}
                   </h3>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                  <p className="mt-1 text-sm font-semibold leading-5 text-slate-400">
                     Обери ім'я, стиль і неоновий колір своєї фішки.
                   </p>
                 </div>
-              </div>
 
-              <button
-                className="neo-button h-11 rounded-[16px] bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={profileSaving || !canSaveProfile}
-                onClick={() => void handleSavePlayerProfile()}
-                type="button"
-              >
-                {profileSaving ? 'Зберігаємо...' : 'Зберегти'}
-              </button>
-            </div>
+                {canEditProfile ? (
+                  <button
+                    className="neo-button h-11 w-full rounded-[16px] bg-violet-500 px-5 text-sm font-bold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2 lg:col-span-1 lg:w-auto"
+                    disabled={profileSaving || !canSaveProfile}
+                    onClick={() => void handleSavePlayerProfile()}
+                    type="button"
+                  >
+                    {profileSaving ? 'Зберігаємо...' : 'Зберегти'}
+                  </button>
+                ) : (
+                  <span className="inline-flex h-11 w-full items-center justify-center rounded-[16px] border border-violet-300/25 bg-slate-950/35 px-5 text-sm font-bold text-slate-300 sm:col-span-2 lg:col-span-1 lg:w-auto">
+                    Тільки перегляд
+                  </span>
+                )}
+              </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
               <label className="block min-w-0 lg:col-span-2">
-                <span className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-normal text-slate-400">
                   Ім'я гравця
                 </span>
                 <input
                   className="mt-2 h-11 w-full rounded-[16px] border border-violet-300/30 bg-[#12121a] px-3 text-sm font-bold text-violet-50 outline-none transition [color-scheme:dark] placeholder:text-slate-500 focus:border-fuchsia-300/70 focus:ring-4 focus:ring-violet-500/20"
                   maxLength={32}
                   minLength={2}
+                  disabled={!canEditProfile}
                   onChange={(event) => setDisplayName(event.target.value)}
                   placeholder="Ім'я над фішкою"
                   type="text"
                   value={displayName}
                 />
-                <span className="mt-1 block text-xs font-semibold text-slate-500">
+                <span className="mt-1 block text-xs font-semibold leading-5 text-slate-400">
                   Від 2 до 32 символів. Це ім'я буде показане над фішкою на дошці.
                 </span>
               </label>
 
               <label className="block min-w-0">
-                <span className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-normal text-slate-400">
                   Стиль фішки
                 </span>
                 <select
                   className="mt-2 h-11 w-full rounded-[16px] border border-violet-300/30 bg-[#12121a] px-3 text-sm font-bold text-violet-50 [color-scheme:dark]"
+                  disabled={!canEditProfile}
                   onChange={(event) =>
                     setAvatarStyle(normalizeAvatarStyle(event.target.value))
                   }
@@ -1053,7 +1137,7 @@ function PrivatePlayerStatsModal({
               </label>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
                   Колір фішки
                 </p>
                 <div
@@ -1074,6 +1158,7 @@ function PrivatePlayerStatsModal({
                             ? 'border-fuchsia-100 ring-2 ring-fuchsia-300 ring-offset-2 ring-offset-[#12121a]'
                             : 'border-violet-200/50',
                         )}
+                        disabled={!canEditProfile}
                         key={color}
                         onClick={() => setAvatarColor(color)}
                         role="radio"
@@ -1087,7 +1172,7 @@ function PrivatePlayerStatsModal({
             </div>
 
             <div className="mt-4">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+              <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
                 Живий вибір стилю
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -1103,6 +1188,7 @@ function PrivatePlayerStatsModal({
                           ? 'border-fuchsia-200 bg-violet-500/22 text-fuchsia-50 ring-2 ring-fuchsia-300/45'
                           : 'border-violet-300/25 bg-[#12121a]/45 text-slate-300 hover:border-fuchsia-300/60 hover:bg-violet-500/12',
                       )}
+                      disabled={!canEditProfile}
                       key={option.id}
                       onClick={() => setAvatarStyle(option.id)}
                       type="button"
@@ -1131,121 +1217,229 @@ function PrivatePlayerStatsModal({
                 {profileSaveError}
               </p>
             ) : null}
-          </section>
+            </section>
+          ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
-                Баланс
-              </p>
-              <AnimatedNumber
-                className="mt-1 block text-lg font-bold text-slate-950"
-                formatter={formatMoney}
-                value={player.balance}
-              />
-            </div>
-            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
-                Імідж
-              </p>
-              <AnimatedNumber
-                className="mt-1 block text-lg font-bold text-slate-950"
-                formatter={formatInteger}
-                value={player.image}
-              />
-            </div>
-            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
-              <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
-                Зустрічі
-              </p>
-              <AnimatedNumber
-                className="mt-1 block text-lg font-bold text-slate-950"
-                formatter={formatInteger}
-                value={meetingsTotal}
-              />
-              <p className="mt-1 text-xs font-semibold text-slate-500">
-                {formatInteger(player.successfulDeals)} успішних /{' '}
-                {formatInteger(player.failedDeals)} провалених
-              </p>
-            </div>
-          </div>
+          {activeTab === 'overview' ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 px-4 py-4">
+                  <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                    Баланс
+                  </p>
+                  <AnimatedNumber
+                    className="mt-1 block text-xl font-black text-violet-50"
+                    formatter={formatMoney}
+                    value={player.balance}
+                  />
+                </div>
+                <div className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 px-4 py-4">
+                  <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                    Імідж
+                  </p>
+                  <AnimatedNumber
+                    className="mt-1 block text-xl font-black text-violet-50"
+                    formatter={formatInteger}
+                    value={player.image}
+                  />
+                </div>
+                <div className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 px-4 py-4">
+                  <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                    Зустрічі
+                  </p>
+                  <AnimatedNumber
+                    className="mt-1 block text-xl font-black text-violet-50"
+                    formatter={formatInteger}
+                    value={meetingsTotal}
+                  />
+                  <p className="mt-1 text-xs font-semibold text-slate-400">
+                    {formatInteger(player.successfulDeals)} успішних /{' '}
+                    {formatInteger(player.failedDeals)} провалених
+                  </p>
+                </div>
+              </div>
 
-          <section>
-            <h3 className="text-base font-bold tracking-normal text-slate-950">
-              Акції компаній
-            </h3>
-            <div className="mt-3 grid gap-2">
-              {companyRows.map((company) => (
-                <div
-                  className="neo-panel grid gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 sm:grid-cols-[minmax(0,1fr)_160px_160px]"
-                  key={company.id}
-                >
+              <section className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-4">
+                <div className="flex items-center gap-3">
+                  <PlayerAvatarToken
+                    avatarColor={avatarColor}
+                    avatarStyle={avatarStyle}
+                    name={normalizedDisplayName || player.name}
+                    size="sm"
+                  />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-slate-950">
-                      {company.name}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
-                      1 акція: {formatMoney(company.sharePrice)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                      Куплено
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-slate-950">
-                      {formatInteger(company.ownedShares)} /{' '}
-                      {formatPercent(company.ownedPercent)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                      Вільно
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-emerald-700">
-                      {formatInteger(company.availableShares)} /{' '}
-                      {formatPercent(company.availablePercent)}
+                    <h3 className="break-words text-lg font-black text-violet-50">
+                      {normalizedDisplayName || player.name}
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-slate-400">
+                      Короткий стан гравця
                     </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
 
-          <section className="grid gap-3 sm:grid-cols-2">
-            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
-              <h3 className="text-base font-bold tracking-normal text-slate-950">
-                Тендери
-              </h3>
-              {tenders.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-sm font-semibold text-slate-700">
-                  {tenders.map((tender) => (
-                    <li key={tender.id}>
-                      {tender.country}: {formatMoney(tender.buyout)}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Тендерів поки немає.
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div className="rounded-[16px] border border-violet-300/20 bg-[#12121a]/70 px-3 py-3">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Коло
+                    </dt>
+                    <dd className="mt-1 font-black text-violet-50">
+                      {formatRing(player.ring)}
+                    </dd>
+                  </div>
+                  <div className="rounded-[16px] border border-violet-300/20 bg-[#12121a]/70 px-3 py-3">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Клітинка
+                    </dt>
+                    <dd className="mt-1 break-words font-black text-violet-50">
+                      {player.cellId}
+                    </dd>
+                  </div>
+                  <div className="rounded-[16px] border border-violet-300/20 bg-[#12121a]/70 px-3 py-3">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Куплено акцій
+                    </dt>
+                    <dd className="mt-1 font-black text-violet-50">
+                      {formatInteger(totalOwnedShares)}
+                    </dd>
+                  </div>
+                  <div className="rounded-[16px] border border-violet-300/20 bg-[#12121a]/70 px-3 py-3">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Тендери
+                    </dt>
+                    <dd className="mt-1 font-black text-violet-50">
+                      {formatInteger(tenders.length)}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            </>
+          ) : null}
+
+          {activeTab === 'stocks' ? (
+            <section>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+                    Портфель
+                  </p>
+                  <h3 className="mt-1 text-lg font-black tracking-normal text-violet-50">
+                    Акції компаній
+                  </h3>
+                </div>
+                <p className="text-sm font-semibold text-slate-400">
+                  Куплено {formatInteger(totalOwnedShares)} · Вільно{' '}
+                  {formatInteger(totalAvailableShares)}
                 </p>
-              )}
-            </div>
-            <div className="neo-panel rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
-              <h3 className="text-base font-bold tracking-normal text-slate-950">
-                Позиція
-              </h3>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-700">
-                <span>Коло</span>
-                <span className="text-right text-slate-950">
-                  {formatRing(player.ring)}
-                </span>
-                <span>Клітинка</span>
-                <span className="text-right text-slate-950">
-                  {player.cellId}
-                </span>
               </div>
-            </div>
-          </section>
+
+              <div className="mt-3 grid gap-3">
+                {companyRows.map((company) => (
+                  <div
+                    className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-3 sm:p-4"
+                    key={company.id}
+                  >
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px_140px] sm:items-center">
+                      <div className="min-w-0">
+                        <p className="break-words text-base font-black text-violet-50">
+                          {company.name}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-400">
+                          1 акція: {formatMoney(company.sharePrice)}
+                        </p>
+                      </div>
+                      <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-400">
+                          Куплено
+                        </p>
+                        <p className="mt-1 text-base font-black text-violet-50">
+                          {formatInteger(company.ownedShares)} /{' '}
+                          {formatPercent(company.ownedPercent)}
+                        </p>
+                      </div>
+                      <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                        <p className="text-[11px] font-bold uppercase tracking-normal text-slate-400">
+                          Вільно
+                        </p>
+                        <p className="mt-1 text-base font-black text-fuchsia-200">
+                          {formatInteger(company.availableShares)} /{' '}
+                          {formatPercent(company.availablePercent)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-950/70">
+                      <div
+                        className="h-full rounded-full bg-violet-400 shadow-[0_0_18px_rgba(192,132,252,0.45)]"
+                        style={{
+                          width: `${Math.min(company.ownedPercent, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === 'assets' ? (
+            <section className="grid gap-3 md:grid-cols-2">
+              <div className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-4">
+                <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+                  Активи
+                </p>
+                <h3 className="mt-1 text-lg font-black tracking-normal text-violet-50">
+                  Тендери
+                </h3>
+                {tenders.length > 0 ? (
+                  <ul className="mt-3 space-y-2 text-sm font-semibold text-slate-300">
+                    {tenders.map((tender) => (
+                      <li
+                        className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2"
+                        key={tender.id}
+                      >
+                        <span className="block font-black text-violet-50">
+                          {tender.country}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-400">
+                          Викуп: {formatMoney(tender.buyout)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-3 text-sm font-semibold text-slate-400">
+                    Тендерів поки немає.
+                  </p>
+                )}
+              </div>
+              <div className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-4">
+                <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+                  Локація
+                </p>
+                <h3 className="mt-1 text-lg font-black tracking-normal text-violet-50">
+                  Позиція
+                </h3>
+                <dl className="mt-3 grid gap-3 text-sm">
+                  <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Коло
+                    </dt>
+                    <dd className="mt-1 font-black text-violet-50">
+                      {formatRing(player.ring)}
+                    </dd>
+                  </div>
+                  <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Клітинка
+                    </dt>
+                    <dd className="mt-1 break-words font-black text-violet-50">
+                      {player.cellId}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
     </div>
@@ -1606,7 +1800,6 @@ function PendingActionPanel({
     reputationPhase === 'dice_rolled' ||
     reputationPhase === 'multiplier_ready';
   const salaryPhase = readPayloadString(action.payload, 'phase', 'initial');
-  const salaryDie = readPayloadNumber(action.payload, 'die');
   const salaryImage = readPayloadNumber(
     action.payload,
     'image',
@@ -1622,16 +1815,36 @@ function PendingActionPanel({
     'unit',
     salaryImage > 0 ? 1000 : salaryImage < 0 ? 100 : 0,
   );
-  const salaryAmount = readPayloadNumber(
+  const salaryStoredAmount = readPayloadNumber(
     action.payload,
     'amount',
-    salaryDie * salaryUnit,
+    Number.NaN,
   );
-  const salaryBalanceDelta = readPayloadNumber(
+  const salaryStoredBalanceDelta = readPayloadNumber(
     action.payload,
     'balanceDelta',
-    salaryKind === 'bonus' ? salaryAmount : salaryKind === 'fine' ? -salaryAmount : 0,
+    Number.NaN,
   );
+  const salaryDerivedAmountBase = Number.isFinite(salaryStoredAmount)
+    ? salaryStoredAmount
+    : Math.abs(Number.isFinite(salaryStoredBalanceDelta) ? salaryStoredBalanceDelta : 0);
+  const salaryDie = readPayloadNumber(
+    action.payload,
+    'die',
+    salaryUnit > 0 && salaryDerivedAmountBase > 0
+      ? Math.round(salaryDerivedAmountBase / salaryUnit)
+      : 0,
+  );
+  const salaryAmount = Number.isFinite(salaryStoredAmount)
+    ? salaryStoredAmount
+    : salaryDie * salaryUnit;
+  const salaryBalanceDelta = Number.isFinite(salaryStoredBalanceDelta)
+    ? salaryStoredBalanceDelta
+    : salaryKind === 'bonus'
+      ? salaryAmount
+      : salaryKind === 'fine'
+        ? -salaryAmount
+        : 0;
   const salaryBalanceBefore = readPayloadNumber(
     action.payload,
     'balanceBefore',
@@ -1642,7 +1855,11 @@ function PendingActionPanel({
     'balanceAfter',
     salaryBalanceBefore + salaryBalanceDelta,
   );
-  const salaryReadyToConfirm = salaryPhase === 'roll_ready';
+  const salaryHasResult =
+    salaryDie > 0 ||
+    Number.isFinite(salaryStoredAmount) ||
+    Number.isFinite(salaryStoredBalanceDelta);
+  const salaryReadyToConfirm = salaryPhase === 'roll_ready' || salaryHasResult;
   const companyName = readPayloadString(action.payload, 'name', 'Компанія');
   const companyTotalShares = Math.max(
     1,
@@ -2117,7 +2334,7 @@ function PendingActionPanel({
                 <D20Dice
                   className="shadow-emerald-950/30 ring-emerald-100/70"
                   rolling={busy && canAct && !salaryReadyToConfirm}
-                  value={salaryDie || null}
+                  value={salaryDie > 0 ? salaryDie : null}
                 />
 
                 <div className="min-w-0 space-y-3">
@@ -2153,7 +2370,7 @@ function PendingActionPanel({
                         d20
                       </p>
                       <p className="mt-1 text-lg font-black text-violet-700">
-                        {salaryDie || '?'}
+                        {salaryDie > 0 ? salaryDie : '?'}
                       </p>
                     </div>
                     <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
@@ -2966,7 +3183,7 @@ function PendingActionPanel({
 
             <div className="grid grid-cols-2 gap-2">
               <button
-                className="h-11 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                className="h-12 rounded-[16px] border border-emerald-200/70 bg-emerald-500 px-3 text-sm font-black text-white shadow-[0_0_24px_rgba(16,185,129,0.28)] transition duration-300 hover:bg-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-white/20 disabled:bg-slate-950/65 disabled:text-slate-300 disabled:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                 disabled={!canAct || busy || !canAffordImage}
                 onClick={() =>
                   runRpc('resolve_image_offer', {
@@ -2979,7 +3196,7 @@ function PendingActionPanel({
                 Згоден
               </button>
               <button
-                className="h-11 rounded-md border border-fuchsia-100/70 bg-slate-950/55 px-3 text-sm font-semibold text-fuchsia-50 shadow-lg shadow-slate-950/25 transition hover:border-white hover:bg-fuchsia-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-slate-950/25 disabled:text-slate-400 disabled:shadow-none"
+                className="h-12 rounded-[16px] border border-rose-200/70 bg-rose-500/16 px-3 text-sm font-black text-white shadow-[0_0_24px_rgba(244,63,94,0.18)] transition duration-300 hover:border-white hover:bg-rose-500/28 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-slate-950/45 disabled:text-slate-300 disabled:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                 disabled={!canAct || busy}
                 onClick={() =>
                   runRpc('resolve_image_offer', {
@@ -3320,6 +3537,7 @@ function PendingActionPanel({
 
 export default function PlayPage({ params }: PlayPageProps) {
   const joinCode = useMemo(() => normalizeJoinCode(params.code), [params.code]);
+  const { user } = useAuth();
   const botTurnInFlightRef = useRef<string | null>(null);
   const {
     applyStateSnapshot,
@@ -3338,6 +3556,9 @@ export default function PlayPage({ params }: PlayPageProps) {
   } = useGameRealtime({ joinCode });
   const [botTurnError, setBotTurnError] = useState<string | null>(null);
   const [privatePlayerCardOpen, setPrivatePlayerCardOpen] = useState(false);
+  const [playerCardTargetId, setPlayerCardTargetId] = useState<PlayerId | null>(
+    null,
+  );
   const [privatePlayerSnapshot, setPrivatePlayerSnapshot] =
     useState<Player | null>(null);
   const [thinkingBotPlayerId, setThinkingBotPlayerId] =
@@ -3368,6 +3589,26 @@ export default function PlayPage({ params }: PlayPageProps) {
 
     return basePrivatePlayer;
   }, [basePrivatePlayer, privatePlayerSnapshot]);
+  const canInspectBotCards = useMemo(
+    () => isAnonymousUser(user) || Boolean(readStoredTestUser()),
+    [user],
+  );
+  const botPlayers = useMemo(
+    () => players.filter((player) => player.isBot),
+    [players],
+  );
+  const playerCardTarget = useMemo(() => {
+    if (playerCardTargetId) {
+      return players.find((player) => player.id === playerCardTargetId) ?? null;
+    }
+
+    return privatePlayer;
+  }, [playerCardTargetId, players, privatePlayer]);
+  const playerCardCanEdit = Boolean(
+    playerCardTarget &&
+      privatePlayer &&
+      playerCardTarget.id === privatePlayer.id,
+  );
   const boardPlayers = useMemo(
     () =>
       players.filter((player) => !player.eliminated).map((player) => ({
@@ -3426,6 +3667,21 @@ export default function PlayPage({ params }: PlayPageProps) {
     [applyStateSnapshot, basePrivatePlayer?.id, currentPlayer?.id, refresh],
   );
 
+  const openPrivatePlayerCard = useCallback(() => {
+    setPlayerCardTargetId(null);
+    setPrivatePlayerCardOpen(true);
+  }, []);
+
+  const openInspectedPlayerCard = useCallback((playerId: PlayerId) => {
+    setPlayerCardTargetId(playerId);
+    setPrivatePlayerCardOpen(true);
+  }, []);
+
+  const closePlayerCard = useCallback(() => {
+    setPrivatePlayerCardOpen(false);
+    setPlayerCardTargetId(null);
+  }, []);
+
   useEffect(() => {
     if (!privatePlayerSnapshot) {
       return;
@@ -3446,10 +3702,10 @@ export default function PlayPage({ params }: PlayPageProps) {
   }, [basePrivatePlayer, privatePlayerSnapshot]);
 
   useEffect(() => {
-    if (!privatePlayer) {
-      setPrivatePlayerCardOpen(false);
+    if (privatePlayerCardOpen && !playerCardTarget) {
+      closePlayerCard();
     }
-  }, [privatePlayer?.id]);
+  }, [closePlayerCard, playerCardTarget, privatePlayerCardOpen]);
 
   useEffect(() => {
     if (
@@ -3613,7 +3869,9 @@ export default function PlayPage({ params }: PlayPageProps) {
                     <div className="mt-4 border-t border-violet-300/20 pt-4">
                       <SeatSwitcher
                         browserPlayerId={currentPlayer?.id ?? null}
+                        canInspectBotCards={canInspectBotCards}
                         currentTurnPlayerId={gameState.currentTurnPlayerId}
+                        onInspectPlayer={openInspectedPlayerCard}
                         players={players}
                       />
                     </div>
@@ -3680,7 +3938,7 @@ export default function PlayPage({ params }: PlayPageProps) {
                     {privatePlayer ? (
                       <button
                         className="neo-button inline-flex min-h-10 items-center justify-center rounded-[16px] bg-slate-950 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
-                        onClick={() => setPrivatePlayerCardOpen(true)}
+                        onClick={openPrivatePlayerCard}
                         type="button"
                       >
                         Карточка гравця
@@ -3706,11 +3964,56 @@ export default function PlayPage({ params }: PlayPageProps) {
               {privatePlayer ? (
                 <button
                   className="neo-button h-11 w-full rounded-[16px] bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  onClick={() => setPrivatePlayerCardOpen(true)}
+                  onClick={openPrivatePlayerCard}
                   type="button"
                 >
                   Карточка гравця
                 </button>
+              ) : null}
+
+              {canInspectBotCards && botPlayers.length > 0 ? (
+                <section className="neo-panel rounded-[18px] border border-violet-300/30 bg-[#171421]/88 p-4 shadow-[0_18px_50px_rgba(12,8,28,0.38)]">
+                  <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+                    Тестовий режим
+                  </p>
+                  <h2 className="mt-1 text-lg font-black tracking-normal text-violet-50">
+                    Картки ботів
+                  </h2>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
+                    Окремий перегляд статистики ботів для перевірки логіки.
+                  </p>
+                  <div className="mt-3 grid gap-2">
+                    {botPlayers.map((botPlayer) => (
+                      <button
+                        className="flex items-center justify-between gap-3 rounded-[16px] border border-violet-300/25 bg-slate-950/35 px-3 py-3 text-left transition hover:border-fuchsia-300/60 hover:bg-violet-500/12 active:scale-[0.99]"
+                        key={botPlayer.id}
+                        onClick={() => openInspectedPlayerCard(botPlayer.id)}
+                        type="button"
+                      >
+                        <span className="flex min-w-0 items-center gap-3">
+                          <PlayerAvatarToken
+                            avatarColor={botPlayer.avatarColor}
+                            avatarStyle={botPlayer.avatarStyle}
+                            name={botPlayer.name}
+                            size="sm"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black text-violet-50">
+                              {botPlayer.name}
+                            </span>
+                            <span className="mt-1 block truncate text-xs font-semibold text-slate-400">
+                              {formatMoney(botPlayer.balance)} · Імідж{' '}
+                              {formatInteger(botPlayer.image)}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-[12px] border border-violet-300/35 px-2 py-1 text-xs font-black text-fuchsia-100">
+                          Відкрити
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ) : null}
 
               <PendingActionPanel
@@ -3739,13 +4042,15 @@ export default function PlayPage({ params }: PlayPageProps) {
           </div>
         ) : null}
 
-        {gameState && privatePlayer ? (
+        {gameState && playerCardTarget ? (
           <PrivatePlayerStatsModal
+            canEditProfile={playerCardCanEdit}
+            eyebrow={playerCardCanEdit ? 'Приватна статистика' : 'Картка бота'}
             gameState={gameState}
-            onClose={() => setPrivatePlayerCardOpen(false)}
-            onPlayerUpdated={handleActionResolved}
+            onClose={closePlayerCard}
+            onPlayerUpdated={playerCardCanEdit ? handleActionResolved : undefined}
             open={privatePlayerCardOpen}
-            player={privatePlayer}
+            player={playerCardTarget}
           />
         ) : null}
       </main>
