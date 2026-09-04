@@ -165,6 +165,29 @@ a {
   color: var(--neo-secondary);
 }
 
+.fullscreen-toggle {
+  right: 0.75rem;
+  top: 0.75rem;
+  right: calc(env(safe-area-inset-right) + 0.75rem);
+  top: calc(env(safe-area-inset-top) + 0.75rem);
+}
+
+@media (max-width: 1440px) {
+  .fullscreen-toggle {
+    top: 5.25rem;
+    top: calc(env(safe-area-inset-top) + 5.25rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .fullscreen-toggle {
+    right: 0.625rem;
+    top: 4.75rem;
+    right: calc(env(safe-area-inset-right) + 0.625rem);
+    top: calc(env(safe-area-inset-top) + 4.75rem);
+  }
+}
+
 .neo-panel,
 .neo-theme article,
 .neo-theme form,
