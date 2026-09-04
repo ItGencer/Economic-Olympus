@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AuthProvider } from '@/components/AuthProvider';
+import FullscreenToggle from '@/components/FullscreenToggle';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import SiteFooter from '@/components/SiteFooter';
 
@@ -60,6 +61,7 @@ export default function RootLayout({
       <body className="neo-theme">
         <LanguageProvider>
           <AuthProvider>
+            <FullscreenToggle />
             {children}
             <SiteFooter />
           </AuthProvider>

@@ -400,6 +400,29 @@ function getSharePercent(shareCount: number, totalShares: number) {
   return (shareCount / totalShares) * 100;
 }
 
+function clampCompanySharePurchaseCount(value: number, maxShares: number) {
+  if (maxShares <= 0) {
+    return 0;
+  }
+
+  const wholeValue = Number.isFinite(value) ? Math.floor(value) : 1;
+
+  return Math.max(1, Math.min(wholeValue, maxShares));
+}
+
+function getCompanySharePurchaseActionKey(
+  gameId: GameState['gameId'],
+  action: PendingAction,
+) {
+  const companyId = readPayloadString(
+    action.payload,
+    'companyId',
+    action.cellId ?? 'company',
+  );
+
+  return `${gameId}:${action.playerId}:${action.cellId ?? ''}:${companyId}`;
+}
+
 function getSoldCompanyShares(company?: Company) {
   if (!company) {
     return 0;
@@ -510,6 +533,30 @@ function readPayloadNumber(
   return fallback;
 }
 
+function readFirstPayloadNumber(
+  payload: Record<string, unknown>,
+  keys: string[],
+  fallback = 0,
+) {
+  for (const key of keys) {
+    const value = payload[key];
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const parsedValue = Number(value);
+
+      if (Number.isFinite(parsedValue)) {
+        return parsedValue;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 function readPayloadString(
   payload: Record<string, unknown>,
   key: string,
@@ -519,6 +566,142 @@ function readPayloadString(
 
   return typeof value === 'string' ? value : fallback;
 }
+
+function normalizeSalaryKind(value: string, image: number) {
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (
+    normalizedValue === 'bonus' ||
+    normalizedValue.includes('прем') ||
+    normalizedValue.includes('bonus')
+  ) {
+    return 'bonus';
+  }
+
+  if (
+    normalizedValue === 'fine' ||
+    normalizedValue.includes('штраф') ||
+    normalizedValue.includes('fine')
+  ) {
+    return 'fine';
+  }
+
+  return image > 0 ? 'bonus' : image < 0 ? 'fine' : 'neutral';
+}
+
+function readSalaryUiState(
+  payload: Record<string, unknown>,
+  player: Player | null,
+  override?: Record<string, unknown> | null,
+) {
+  const salaryPayload = override ? { ...payload, ...override } : payload;
+  const image = readFirstPayloadNumber(
+    salaryPayload,
+    ['image', 'playerImage'],
+    player?.image ?? 0,
+  );
+  const kind = normalizeSalaryKind(
+    readPayloadString(
+      salaryPayload,
+      'kind',
+      readPayloadString(salaryPayload, 'salaryKind'),
+    ),
+    image,
+  );
+  const unit = readFirstPayloadNumber(
+    salaryPayload,
+    ['unit', 'salaryUnit'],
+    image > 0 ? 1000 : image < 0 ? 100 : 0,
+  );
+  const storedAmount = readFirstPayloadNumber(
+    salaryPayload,
+    ['amount', 'salaryAmount'],
+    Number.NaN,
+  );
+  const storedBalanceDelta = readFirstPayloadNumber(
+    salaryPayload,
+    ['balanceDelta', 'balance_delta', 'balanceChange', 'delta'],
+    Number.NaN,
+  );
+  const balanceBefore = readFirstPayloadNumber(
+    salaryPayload,
+    ['balanceBefore', 'balance_before'],
+    player?.balance ?? 0,
+  );
+  const storedBalanceAfter = readFirstPayloadNumber(
+    salaryPayload,
+    ['balanceAfter', 'balance_after'],
+    Number.NaN,
+  );
+  const deltaFromBalance =
+    Number.isFinite(storedBalanceAfter) && Number.isFinite(balanceBefore)
+      ? storedBalanceAfter - balanceBefore
+      : Number.NaN;
+  const amountBase = Number.isFinite(storedAmount)
+    ? Math.abs(storedAmount)
+    : Math.abs(
+        Number.isFinite(storedBalanceDelta)
+          ? storedBalanceDelta
+          : Number.isFinite(deltaFromBalance)
+            ? deltaFromBalance
+            : 0,
+      );
+  const derivedDie =
+    unit > 0 && amountBase > 0 ? Math.round(amountBase / unit) : 0;
+  const die = readFirstPayloadNumber(
+    salaryPayload,
+    ['die', 'd20', 'salaryDie'],
+    derivedDie,
+  );
+  const safeDie = die >= 1 && die <= 20 ? die : 0;
+  const amount = Number.isFinite(storedAmount)
+    ? Math.abs(storedAmount)
+    : safeDie * unit;
+  const balanceDelta = Number.isFinite(storedBalanceDelta)
+    ? storedBalanceDelta
+    : Number.isFinite(deltaFromBalance)
+      ? deltaFromBalance
+      : kind === 'bonus'
+        ? amount
+        : kind === 'fine'
+          ? -amount
+          : 0;
+  const balanceAfter = Number.isFinite(storedBalanceAfter)
+    ? storedBalanceAfter
+    : balanceBefore + balanceDelta;
+  const phase = readPayloadString(salaryPayload, 'phase', 'initial');
+  const hasResult =
+    phase === 'roll_ready' ||
+    safeDie > 0 ||
+    amount > 0 ||
+    Number.isFinite(storedAmount) ||
+    Number.isFinite(storedBalanceDelta) ||
+    Number.isFinite(deltaFromBalance);
+
+  return {
+    amount,
+    balanceAfter,
+    balanceBefore,
+    balanceDelta,
+    die: safeDie,
+    hasResult,
+    image,
+    kind,
+    phase,
+    unit,
+  };
+}
+
+function getSalaryActionKey(action: PendingAction) {
+  return [
+    action.type,
+    action.id || 'no-id',
+    action.playerId || 'no-player',
+    action.cellId || 'no-cell',
+  ].join(':');
+}
+
+const salaryRollResultCache = new Map<string, Record<string, unknown>>();
 
 function readPayloadBoolean(
   payload: Record<string, unknown>,
@@ -695,7 +878,25 @@ function buildOptimisticPlayerSnapshot(
     action.type === 'salary' &&
     args.p_decision === 'confirm'
   ) {
-    const balanceDelta = readPayloadNumber(action.payload, 'balanceDelta');
+    const salaryAmount = readPayloadNumber(action.payload, 'amount', 0);
+    const salaryKind = readPayloadString(
+      action.payload,
+      'kind',
+      player.image > 0 ? 'bonus' : player.image < 0 ? 'fine' : 'neutral',
+    );
+    const balanceDelta = readPayloadNumber(
+      action.payload,
+      'balanceDelta',
+      readPayloadNumber(
+        action.payload,
+        'balance_delta',
+        salaryKind === 'fine'
+          ? -salaryAmount
+          : salaryKind === 'bonus'
+            ? salaryAmount
+            : 0,
+      ),
+    );
     const balance = player.balance + balanceDelta;
 
     return {
@@ -881,6 +1082,8 @@ function PrivatePlayerStatsModal({
   const [activeTab, setActiveTab] = useState<
     'overview' | 'token' | 'stocks' | 'assets'
   >('overview');
+  const [activeCompanyTabId, setActiveCompanyTabId] =
+    useState<CompanyId>('company-logistics');
 
   useEffect(() => {
     if (!open) {
@@ -897,6 +1100,7 @@ function PrivatePlayerStatsModal({
   useEffect(() => {
     if (open) {
       setActiveTab('overview');
+      setActiveCompanyTabId('company-logistics');
     }
   }, [open, player.id]);
 
@@ -945,6 +1149,9 @@ function PrivatePlayerStatsModal({
     (total, company) => total + company.availableShares,
     0,
   );
+  const activeCompanyRow =
+    companyRows.find((company) => company.id === activeCompanyTabId) ??
+    companyRows[0]!;
   const tabItems = [
     { id: 'overview', label: 'Огляд', value: formatMoney(player.balance) },
     { id: 'token', label: 'Фішка', value: avatarStyleOptions.length },
@@ -1332,7 +1539,120 @@ function PrivatePlayerStatsModal({
                 </p>
               </div>
 
-              <div className="mt-3 grid gap-3">
+              <div
+                className="mt-4 flex gap-2 overflow-x-auto pb-1"
+                role="tablist"
+              >
+                {companyRows.map((company) => {
+                  const selected = activeCompanyRow.id === company.id;
+
+                  return (
+                    <button
+                      aria-selected={selected}
+                      className={joinClassNames(
+                        'min-w-[132px] rounded-[16px] border px-3 py-2 text-left transition active:scale-[0.98]',
+                        selected
+                          ? 'border-fuchsia-200 bg-violet-500/25 text-fuchsia-50 shadow-[0_0_22px_rgba(168,85,247,0.28)]'
+                          : 'border-violet-300/20 bg-slate-950/35 text-slate-400 hover:border-violet-300/50 hover:text-violet-50',
+                      )}
+                      key={company.id}
+                      onClick={() => setActiveCompanyTabId(company.id)}
+                      role="tab"
+                      type="button"
+                    >
+                      <span className="block truncate text-sm font-black">
+                        {company.name}
+                      </span>
+                      <span className="mt-1 block text-[11px] font-bold text-slate-400">
+                        {formatInteger(company.ownedShares)} акц.
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <article className="neo-panel mt-4 rounded-[20px] border border-violet-300/25 bg-slate-950/35 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+                      Компанія
+                    </p>
+                    <h4 className="mt-1 break-words text-xl font-black text-violet-50">
+                      {activeCompanyRow.name}
+                    </h4>
+                    <p className="mt-1 text-sm font-semibold text-slate-400">
+                      1 акція: {formatMoney(activeCompanyRow.sharePrice)}
+                    </p>
+                  </div>
+                  <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2 text-right">
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-400">
+                      Пул компанії
+                    </p>
+                    <p className="mt-1 text-base font-black text-violet-50">
+                      {formatInteger(activeCompanyRow.totalShares)} шт.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[16px] border border-violet-300/20 bg-[#12121a]/65 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Ваші акції
+                    </p>
+                    <p className="mt-1 text-xl font-black text-violet-50">
+                      {formatInteger(activeCompanyRow.ownedShares)} /{' '}
+                      {formatPercent(activeCompanyRow.ownedPercent)}
+                    </p>
+                  </div>
+                  <div className="rounded-[16px] border border-violet-300/20 bg-[#12121a]/65 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Вільно для купівлі
+                    </p>
+                    <p className="mt-1 text-xl font-black text-fuchsia-200">
+                      {formatInteger(activeCompanyRow.availableShares)} /{' '}
+                      {formatPercent(activeCompanyRow.availablePercent)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-950/70">
+                  <div
+                    className="h-full rounded-full bg-violet-400 shadow-[0_0_18px_rgba(192,132,252,0.45)] transition-all duration-300"
+                    style={{
+                      width: `${Math.min(activeCompanyRow.ownedPercent, 100)}%`,
+                    }}
+                  />
+                </div>
+
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                  <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Куплено
+                    </dt>
+                    <dd className="mt-1 font-black text-violet-50">
+                      {formatInteger(activeCompanyRow.ownedShares)} шт.
+                    </dd>
+                  </div>
+                  <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Залишилось
+                    </dt>
+                    <dd className="mt-1 font-black text-fuchsia-200">
+                      {formatInteger(activeCompanyRow.availableShares)} шт.
+                    </dd>
+                  </div>
+                  <div className="rounded-[14px] border border-violet-300/20 bg-[#12121a]/65 px-3 py-2">
+                    <dt className="text-xs font-bold uppercase tracking-normal text-slate-400">
+                      Ціна
+                    </dt>
+                    <dd className="mt-1 font-black text-violet-50">
+                      {formatMoney(activeCompanyRow.sharePrice)}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+
+              <div className="hidden">
                 {companyRows.map((company) => (
                   <div
                     className="neo-panel rounded-[18px] border border-violet-300/25 bg-slate-950/35 p-3 sm:p-4"
@@ -1606,6 +1926,335 @@ function AdvertisingOfferCard({
   );
 }
 
+function CompanySharePurchaseCard({
+  action,
+  activePlayer,
+  busy,
+  canAct,
+  error,
+  gameId,
+  isActiveAction,
+  runRpc,
+}: {
+  action: PendingAction;
+  activePlayer: Player | null;
+  busy: boolean;
+  canAct: boolean;
+  error: string | null;
+  gameId: GameState['gameId'];
+  isActiveAction: boolean;
+  runRpc: (rpcName: string, args: RpcArgs) => Promise<void>;
+}) {
+  const companyName = readPayloadString(action.payload, 'name', 'Компанія');
+  const companyTotalShares = Math.max(
+    1,
+    Math.floor(
+      readPayloadNumber(action.payload, 'totalShares', COMPANY_SHARE_POOL),
+    ),
+  );
+  const companySoldShares = Math.max(
+    0,
+    Math.floor(readPayloadNumber(action.payload, 'soldShares')),
+  );
+  const companyAvailableShares = Math.max(
+    0,
+    Math.floor(
+      readPayloadNumber(
+        action.payload,
+        'availableShares',
+        companyTotalShares - companySoldShares,
+      ),
+    ),
+  );
+  const companyPlayerShares = Math.max(
+    0,
+    Math.floor(readPayloadNumber(action.payload, 'playerShares')),
+  );
+  const companySharePrice = Math.max(
+    0,
+    Math.floor(readPayloadNumber(action.payload, 'sharePrice')),
+  );
+  const companyBalanceBefore = activePlayer?.balance ?? 0;
+  const companyCurrentAffordableShares = Math.max(
+    0,
+    companySharePrice > 0
+      ? Math.floor(Math.max(companyBalanceBefore, 0) / companySharePrice)
+      : 0,
+  );
+  const companyMaxAffordableShares = Math.max(
+    0,
+    Math.floor(
+      readPayloadNumber(
+        action.payload,
+        'maxAffordableShares',
+        companyCurrentAffordableShares,
+      ),
+    ),
+  );
+  const companyPayloadMaxPurchasableShares = Math.max(
+    0,
+    Math.floor(
+      readPayloadNumber(
+        action.payload,
+        'maxPurchasableShares',
+        Math.min(companyAvailableShares, companyMaxAffordableShares),
+      ),
+    ),
+  );
+  const companyMaxPurchasableShares = Math.max(
+    0,
+    Math.min(
+      companyAvailableShares,
+      companyMaxAffordableShares,
+      companyCurrentAffordableShares,
+      companyPayloadMaxPurchasableShares,
+    ),
+  );
+  const purchaseActionKey = getCompanySharePurchaseActionKey(gameId, action);
+  const [shareCount, setShareCount] = useState(() =>
+    clampCompanySharePurchaseCount(1, companyMaxPurchasableShares),
+  );
+
+  useEffect(() => {
+    setShareCount(
+      clampCompanySharePurchaseCount(1, companyMaxPurchasableShares),
+    );
+  }, [purchaseActionKey, companyMaxPurchasableShares]);
+
+  const normalizedShareCount = clampCompanySharePurchaseCount(
+    shareCount,
+    companyMaxPurchasableShares,
+  );
+  const companyPurchaseCost = normalizedShareCount * companySharePrice;
+  const companyBalanceAfter = companyBalanceBefore - companyPurchaseCost;
+  const companyPlayerPercent = getSharePercent(
+    companyPlayerShares,
+    companyTotalShares,
+  );
+  const canSubmitCompanyPurchase = Boolean(
+    canAct &&
+      !busy &&
+      normalizedShareCount > 0 &&
+      normalizedShareCount <= companyMaxPurchasableShares &&
+      normalizedShareCount <= companyMaxAffordableShares &&
+      normalizedShareCount <= companyCurrentAffordableShares,
+  );
+  function updateSelectedShareCount(delta: number) {
+    setShareCount((currentCount) =>
+      clampCompanySharePurchaseCount(
+        (currentCount > 0 ? currentCount : 1) + delta,
+        companyMaxPurchasableShares,
+      ),
+    );
+  }
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-[clamp(12px,4vw,40px)] backdrop-blur-sm">
+      <section className="neo-panel pointer-events-auto w-full max-w-[640px] rounded-[22px] border border-violet-300/45 bg-[#171421]/96 p-[clamp(16px,4vw,28px)] text-slate-100 shadow-[0_28px_90px_rgba(12,8,28,0.72),0_0_52px_rgba(192,132,252,0.24)] ring-1 ring-white/10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-normal text-fuchsia-200">
+              Купівля акцій
+            </p>
+            <h2 className="neo-heading mt-1 text-3xl font-black tracking-normal text-white">
+              {companyName}
+            </h2>
+            <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-slate-300">
+              Оберіть кількість акцій компанії. Купівля одразу списує кошти з
+              балансу та додає акції у ваш портфель.
+            </p>
+          </div>
+          <span
+            className="shrink-0 rounded px-3 py-1.5 text-xs font-black shadow-sm"
+            style={{ backgroundColor: '#f8fafc', color: '#020617' }}
+          >
+            {canAct ? 'Ваш хід' : isActiveAction ? 'Перегляд' : 'Очікування'}
+          </span>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-[18px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+              1 акція
+            </p>
+            <p className="mt-1 text-xl font-black text-white">
+              {formatMoney(companySharePrice)}
+            </p>
+          </div>
+          <div className="rounded-[18px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+              Вільно
+            </p>
+            <p className="mt-1 text-xl font-black text-fuchsia-200">
+              {formatInteger(companyAvailableShares)} шт.
+            </p>
+          </div>
+          <div className="rounded-[18px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+              Ваші акції
+            </p>
+            <p className="mt-1 text-xl font-black text-violet-50">
+              {formatInteger(companyPlayerShares)} /{' '}
+              {formatPercent(companyPlayerPercent)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-[20px] border border-fuchsia-300/30 bg-slate-950/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-normal text-fuchsia-100">
+                Кількість для покупки
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-400">
+                Доступно зараз: {formatInteger(companyMaxPurchasableShares)} шт.
+              </p>
+            </div>
+            {companyMaxPurchasableShares <= 0 ? (
+              <p className="rounded-[12px] border border-rose-300/35 bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-100">
+                Недостатньо коштів або акції вже розкуплені.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid grid-cols-[52px_44px_minmax(0,1fr)_44px_52px] gap-2 sm:grid-cols-[64px_52px_minmax(0,1fr)_52px_64px]">
+            <button
+              className="h-12 rounded-[16px] border border-violet-300/35 bg-slate-950/55 text-sm font-black text-slate-100 transition hover:border-fuchsia-300/70 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-600"
+              disabled={
+                !canAct ||
+                busy ||
+                companyMaxPurchasableShares <= 0 ||
+                normalizedShareCount < 10
+              }
+              onClick={() => updateSelectedShareCount(-10)}
+              type="button"
+            >
+              -10
+            </button>
+            <button
+              className="h-12 rounded-[16px] border border-violet-300/35 bg-slate-950/55 text-lg font-black text-slate-100 transition hover:border-fuchsia-300/70 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-600"
+              disabled={
+                !canAct ||
+                busy ||
+                companyMaxPurchasableShares <= 0 ||
+                normalizedShareCount <= 1
+              }
+              onClick={() => updateSelectedShareCount(-1)}
+              type="button"
+            >
+              -
+            </button>
+            <output
+              aria-live="polite"
+              className="flex h-12 min-w-0 items-center justify-center rounded-[16px] border border-fuchsia-200/55 bg-violet-500/18 px-3 text-center font-black text-white shadow-[0_0_24px_rgba(168,85,247,0.24)]"
+              data-share-count={normalizedShareCount}
+            >
+              <span className="text-2xl tabular-nums">
+                {formatInteger(normalizedShareCount)}
+              </span>
+              <span className="ml-2 text-sm text-slate-300">шт.</span>
+            </output>
+            <button
+              className="h-12 rounded-[16px] border border-violet-300/35 bg-slate-950/55 text-lg font-black text-slate-100 transition hover:border-fuchsia-300/70 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-600"
+              disabled={
+                !canAct ||
+                busy ||
+                companyMaxPurchasableShares <= 0 ||
+                normalizedShareCount >= companyMaxPurchasableShares
+              }
+              onClick={() => updateSelectedShareCount(1)}
+              type="button"
+            >
+              +
+            </button>
+            <button
+              className="h-12 rounded-[16px] border border-violet-300/35 bg-slate-950/55 text-sm font-black text-slate-100 transition hover:border-fuchsia-300/70 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-600"
+              disabled={
+                !canAct ||
+                busy ||
+                companyMaxPurchasableShares <= 0 ||
+                companyMaxPurchasableShares - normalizedShareCount < 10
+              }
+              onClick={() => updateSelectedShareCount(10)}
+              type="button"
+            >
+              +10
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-[18px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+              Баланс гравця
+            </p>
+            <p className="mt-1 text-xl font-black text-emerald-200">
+              {formatMoney(companyBalanceBefore)}
+            </p>
+          </div>
+          <div className="rounded-[18px] border border-violet-300/25 bg-slate-950/45 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
+              Витрати
+            </p>
+            <p className="mt-1 text-xl font-black text-amber-100">
+              {formatMoney(companyPurchaseCost)}
+            </p>
+          </div>
+        </div>
+
+        <p
+          className={joinClassNames(
+            'mt-3 rounded-[14px] border px-4 py-3 text-sm font-bold',
+            companyBalanceAfter < 0
+              ? 'border-rose-300/35 bg-rose-500/15 text-rose-100'
+              : 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100',
+          )}
+        >
+          Баланс після покупки: {formatMoney(companyBalanceAfter)}
+        </p>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            className="h-12 rounded-[16px] bg-violet-500 px-4 text-sm font-black text-white shadow-[0_0_26px_rgba(168,85,247,0.35)] transition duration-300 hover:bg-violet-400 hover:shadow-[0_0_34px_rgba(192,132,252,0.55)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+            disabled={!canSubmitCompanyPurchase}
+            onClick={() =>
+              runRpc('resolve_company', {
+                p_game_id: gameId,
+                p_share_count: normalizedShareCount,
+              })
+            }
+            type="button"
+          >
+            {busy ? 'Купуємо...' : 'Купити'}
+          </button>
+          <button
+            className="h-12 rounded-[16px] border border-violet-300/45 bg-slate-950/35 px-4 text-sm font-black text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:border-violet-200 hover:bg-violet-300/10 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:text-slate-500"
+            disabled={!canAct || busy}
+            onClick={() =>
+              runRpc('resolve_company', {
+                p_game_id: gameId,
+                p_share_count: 0,
+              })
+            }
+            type="button"
+          >
+            Не купляти
+          </button>
+        </div>
+
+        {error ? (
+          <p
+            aria-live="polite"
+            className="mt-4 rounded-md border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-sm font-bold text-rose-100"
+          >
+            {error}
+          </p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 function PendingActionPanel({
   action,
   activePlayer,
@@ -1627,8 +2276,9 @@ function PendingActionPanel({
   const [casinoBetInput, setCasinoBetInput] = useState('100');
   const [casinoParity, setCasinoParity] = useState<CasinoParity>('even');
   const [casinoStep, setCasinoStep] = useState<CasinoStep>('intro');
-  const [shareCount, setShareCount] = useState(1);
   const [stockToSell, setStockToSell] = useState(1);
+  const [salaryRollOverride, setSalaryRollOverride] =
+    useState<(Record<string, unknown> & { actionKey?: string }) | null>(null);
 
   const isActiveAction = Boolean(
     action &&
@@ -1655,6 +2305,51 @@ function PendingActionPanel({
           throw rpcError;
         }
 
+        if (
+          rpcName === 'resolve_salary' &&
+          action?.type === 'salary' &&
+          args.p_decision === 'roll'
+        ) {
+          const parsedData = parseRpcJson(data);
+          const rpcResult = Array.isArray(parsedData)
+            ? parseRpcJson(parsedData[0])
+            : parsedData;
+
+          if (isRecord(rpcResult)) {
+            const salaryActionKey = getSalaryActionKey(action);
+            const salaryResult = readSalaryUiState(
+              action.payload,
+              activePlayer,
+              rpcResult,
+            );
+
+            const nextSalaryRollOverride = {
+              actionKey: salaryActionKey,
+              amount: salaryResult.amount,
+              balanceAfter: salaryResult.balanceAfter,
+              balanceBefore: salaryResult.balanceBefore,
+              balanceDelta: salaryResult.balanceDelta,
+              die: salaryResult.die,
+              image: salaryResult.image,
+              kind: salaryResult.kind,
+              phase: 'roll_ready',
+              unit: salaryResult.unit,
+            };
+
+            salaryRollResultCache.set(
+              salaryActionKey,
+              nextSalaryRollOverride,
+            );
+            setSalaryRollOverride(nextSalaryRollOverride);
+          }
+        } else if (rpcName === 'resolve_salary') {
+          if (action?.type === 'salary') {
+            salaryRollResultCache.delete(getSalaryActionKey(action));
+          }
+
+          setSalaryRollOverride(null);
+        }
+
         await onResolved(
           readRpcStateSnapshot(data),
           buildOptimisticPlayerSnapshot(rpcName, args, action, activePlayer),
@@ -1671,8 +2366,17 @@ function PendingActionPanel({
   useEffect(() => {
     setCasinoStep('intro');
     setCasinoParity('even');
+    if (action?.type === 'salary') {
+      setSalaryRollOverride(
+        salaryRollResultCache.get(getSalaryActionKey(action)) ?? null,
+      );
+    } else {
+      setSalaryRollOverride(null);
+    }
     setError(null);
+  }, [action?.cellId, action?.id, action?.playerId, action?.type]);
 
+  useEffect(() => {
     if (action?.type === 'casino_bet') {
       const nextStake = Math.max(
         0,
@@ -1681,18 +2385,6 @@ function PendingActionPanel({
 
       setCasinoBetInput(String(nextStake));
     }
-
-    if (action?.type === 'company_share_purchase') {
-      const maxPurchasableShares = Math.max(
-        0,
-        Math.floor(readPayloadNumber(action.payload, 'maxPurchasableShares')),
-      );
-
-      setShareCount(maxPurchasableShares > 0 ? 1 : 0);
-    } else {
-      setShareCount(1);
-    }
-
   }, [action?.id, action?.type, activePlayer?.balance]);
 
   if (!action) {
@@ -1799,125 +2491,51 @@ function PendingActionPanel({
     reputationPhase === 'roll_ready' ||
     reputationPhase === 'dice_rolled' ||
     reputationPhase === 'multiplier_ready';
-  const salaryPhase = readPayloadString(action.payload, 'phase', 'initial');
-  const salaryImage = readPayloadNumber(
+  const salaryActionKey =
+    action.type === 'salary' ? getSalaryActionKey(action) : '';
+  const cachedSalaryRollOverride =
+    action.type === 'salary'
+      ? salaryRollOverride?.actionKey === salaryActionKey
+        ? salaryRollOverride
+        : salaryRollResultCache.get(salaryActionKey) ?? null
+      : null;
+  const salaryState = readSalaryUiState(
     action.payload,
-    'image',
-    activePlayer?.image ?? 0,
+    activePlayer,
+    cachedSalaryRollOverride,
   );
-  const salaryKind = readPayloadString(
-    action.payload,
-    'kind',
-    salaryImage > 0 ? 'bonus' : salaryImage < 0 ? 'fine' : 'neutral',
-  );
-  const salaryUnit = readPayloadNumber(
-    action.payload,
-    'unit',
-    salaryImage > 0 ? 1000 : salaryImage < 0 ? 100 : 0,
-  );
-  const salaryStoredAmount = readPayloadNumber(
-    action.payload,
-    'amount',
-    Number.NaN,
-  );
-  const salaryStoredBalanceDelta = readPayloadNumber(
-    action.payload,
-    'balanceDelta',
-    Number.NaN,
-  );
-  const salaryDerivedAmountBase = Number.isFinite(salaryStoredAmount)
-    ? salaryStoredAmount
-    : Math.abs(Number.isFinite(salaryStoredBalanceDelta) ? salaryStoredBalanceDelta : 0);
-  const salaryDie = readPayloadNumber(
-    action.payload,
-    'die',
-    salaryUnit > 0 && salaryDerivedAmountBase > 0
-      ? Math.round(salaryDerivedAmountBase / salaryUnit)
-      : 0,
-  );
-  const salaryAmount = Number.isFinite(salaryStoredAmount)
-    ? salaryStoredAmount
-    : salaryDie * salaryUnit;
-  const salaryBalanceDelta = Number.isFinite(salaryStoredBalanceDelta)
-    ? salaryStoredBalanceDelta
-    : salaryKind === 'bonus'
-      ? salaryAmount
-      : salaryKind === 'fine'
-        ? -salaryAmount
-        : 0;
-  const salaryBalanceBefore = readPayloadNumber(
-    action.payload,
-    'balanceBefore',
-    activePlayer?.balance ?? 0,
-  );
-  const salaryBalanceAfter = readPayloadNumber(
-    action.payload,
-    'balanceAfter',
-    salaryBalanceBefore + salaryBalanceDelta,
-  );
-  const salaryHasResult =
-    salaryDie > 0 ||
-    Number.isFinite(salaryStoredAmount) ||
-    Number.isFinite(salaryStoredBalanceDelta);
-  const salaryReadyToConfirm = salaryPhase === 'roll_ready' || salaryHasResult;
-  const companyName = readPayloadString(action.payload, 'name', 'Компанія');
-  const companyTotalShares = Math.max(
-    1,
-    Math.floor(
-      readPayloadNumber(action.payload, 'totalShares', COMPANY_SHARE_POOL),
-    ),
-  );
-  const companySoldShares = Math.max(
-    0,
-    Math.floor(readPayloadNumber(action.payload, 'soldShares')),
-  );
-  const companyAvailableShares = Math.max(
-    0,
-    Math.floor(
-      readPayloadNumber(
-        action.payload,
-        'availableShares',
-        companyTotalShares - companySoldShares,
-      ),
-    ),
-  );
-  const companyPlayerShares = Math.max(
-    0,
-    Math.floor(readPayloadNumber(action.payload, 'playerShares')),
-  );
-  const companySharePrice = Math.max(
-    0,
-    Math.floor(readPayloadNumber(action.payload, 'sharePrice')),
-  );
-  const companyMaxAffordableShares = Math.max(
-    0,
-    Math.floor(
-      readPayloadNumber(
-        action.payload,
-        'maxAffordableShares',
-        companySharePrice > 0
-          ? Math.floor((activePlayer?.balance ?? 0) / companySharePrice)
-          : 0,
-      ),
-    ),
-  );
-  const companyMaxPurchasableShares = Math.max(
-    0,
-    Math.floor(
-      readPayloadNumber(
-        action.payload,
-        'maxPurchasableShares',
-        Math.min(companyAvailableShares, companyMaxAffordableShares),
-      ),
-    ),
-  );
-  const companyPurchaseCost = shareCount * companySharePrice;
-  const canSubmitCompanyPurchase = Boolean(
-    canAct &&
-      !busy &&
-      shareCount > 0 &&
-      shareCount <= companyMaxPurchasableShares,
-  );
+  const salaryImage = salaryState.image;
+  const salaryKind = salaryState.kind;
+  const salaryUnit = salaryState.unit;
+  const salaryDie = salaryState.die;
+  const salaryBalanceDelta = salaryState.balanceDelta;
+  const salaryBalanceAfter = salaryState.balanceAfter;
+  const salaryDerivedDieFromAmount =
+    salaryUnit > 0 && salaryState.amount > 0
+      ? Math.round(salaryState.amount / salaryUnit)
+      : 0;
+  const salaryDerivedDieFromDelta =
+    salaryUnit > 0 && Math.abs(salaryBalanceDelta) > 0
+      ? Math.round(Math.abs(salaryBalanceDelta) / salaryUnit)
+      : 0;
+  const salaryDisplayDie =
+    salaryDie > 0
+      ? salaryDie
+      : salaryDerivedDieFromAmount >= 1 && salaryDerivedDieFromAmount <= 20
+        ? salaryDerivedDieFromAmount
+        : salaryDerivedDieFromDelta >= 1 && salaryDerivedDieFromDelta <= 20
+          ? salaryDerivedDieFromDelta
+          : 0;
+  const salaryReadyToConfirm =
+    salaryState.hasResult ||
+    salaryDisplayDie > 0 ||
+    salaryState.amount > 0 ||
+    salaryBalanceDelta !== 0;
+  const salaryButtonLabel = salaryReadyToConfirm
+    ? 'Далі'
+    : busy
+      ? 'Кидаємо...'
+      : 'Кинути кубик';
   const taxRows = readTaxPaymentRows(action.payload);
   const taxPlayerName = readPayloadString(
     action.payload,
@@ -1949,6 +2567,22 @@ function PendingActionPanel({
     'successfulDeals',
     activePlayer?.successfulDeals ?? 0,
   );
+
+  if (action.type === 'company_share_purchase') {
+    return (
+      <CompanySharePurchaseCard
+        action={action}
+        activePlayer={activePlayer}
+        busy={busy}
+        canAct={canAct}
+        error={error}
+        gameId={gameState.gameId}
+        isActiveAction={isActiveAction}
+        key={getCompanySharePurchaseActionKey(gameState.gameId, action)}
+        runRpc={runRpc}
+      />
+    );
+  }
 
   if (action.type === 'outer_ring_choice' && canAct) {
     return (
@@ -2334,7 +2968,7 @@ function PendingActionPanel({
                 <D20Dice
                   className="shadow-emerald-950/30 ring-emerald-100/70"
                   rolling={busy && canAct && !salaryReadyToConfirm}
-                  value={salaryDie > 0 ? salaryDie : null}
+                  value={salaryDisplayDie > 0 ? salaryDisplayDie : null}
                 />
 
                 <div className="min-w-0 space-y-3">
@@ -2346,12 +2980,12 @@ function PendingActionPanel({
                         : 'Імідж нульовий: виплати немає'}
                   </h3>
                   <p className="rounded-md border border-white/20 bg-slate-950/80 px-3 py-2 text-sm font-semibold leading-6 text-slate-100 shadow-inner shadow-slate-950/40">
-                    Киньте d20. Якщо імідж позитивний, результат кубика множиться
+                    Киньте кубик. Якщо імідж позитивний, результат кубика множиться
                     на 1000 USD і додається до балансу. Якщо імідж від’ємний,
                     результат множиться на 100 USD і списується як штраф.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-2 gap-2 text-center">
                     <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
                       <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
                         Імідж
@@ -2363,14 +2997,6 @@ function PendingActionPanel({
                         )}
                       >
                         {formatInteger(salaryImage)}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
-                      <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                        d20
-                      </p>
-                      <p className="mt-1 text-lg font-black text-violet-700">
-                        {salaryDie > 0 ? salaryDie : '?'}
                       </p>
                     </div>
                     <div className="rounded-md bg-white/95 px-3 py-3 text-slate-950 shadow-sm ring-1 ring-white/70">
@@ -2435,7 +3061,7 @@ function PendingActionPanel({
                 }
                 type="button"
               >
-                {salaryReadyToConfirm ? 'Далі' : busy ? 'Кидаємо...' : 'Кинути d20'}
+                {salaryButtonLabel}
               </button>
 
               {error ? (
@@ -2562,7 +3188,7 @@ function PendingActionPanel({
                     }
                     type="button"
                   >
-                    {busy ? 'Крутимо...' : 'Старт'}
+                    {busy ? 'Крутимо...' : 'Далі'}
                   </button>
                 )}
               </div>
@@ -3367,115 +3993,6 @@ function PendingActionPanel({
             >
               Пропустити
             </button>
-          </div>
-        ) : null}
-
-        {action.type === 'company_share_purchase' ? (
-          <div className="space-y-4 rounded-md border border-indigo-100 bg-indigo-50 p-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-normal text-indigo-700">
-                Компанія
-              </p>
-              <h3 className="mt-1 text-xl font-bold tracking-normal text-slate-950">
-                {companyName}
-              </h3>
-            </div>
-
-            <div className="grid gap-2 text-center sm:grid-cols-3">
-              <div className="rounded-md bg-white px-3 py-2">
-                <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                  1 акція
-                </p>
-                <p className="mt-1 text-sm font-bold text-slate-950">
-                  {formatMoney(companySharePrice)}
-                </p>
-              </div>
-              <div className="rounded-md bg-white px-3 py-2">
-                <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                  Вільно
-                </p>
-                <p className="mt-1 text-sm font-bold text-emerald-700">
-                  {formatInteger(companyAvailableShares)} /{' '}
-                  {formatPercent(
-                    getSharePercent(companyAvailableShares, companyTotalShares),
-                  )}
-                </p>
-              </div>
-              <div className="rounded-md bg-white px-3 py-2">
-                <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500">
-                  Ваші акції
-                </p>
-                <p className="mt-1 text-sm font-bold text-indigo-700">
-                  {formatInteger(companyPlayerShares)} /{' '}
-                  {formatPercent(
-                    getSharePercent(companyPlayerShares, companyTotalShares),
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-normal text-slate-600">
-                Кількість для покупки
-              </span>
-              <input
-                className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none transition focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100"
-                max={companyMaxPurchasableShares}
-                min={0}
-                onChange={(event) => {
-                  const nextShareCount = Math.floor(
-                    Number(event.target.value) || 0,
-                  );
-
-                  setShareCount(
-                    Math.max(
-                      0,
-                      Math.min(companyMaxPurchasableShares, nextShareCount),
-                    ),
-                  );
-                }}
-                type="number"
-                value={shareCount}
-              />
-            </label>
-
-            <div className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-              <p>
-                Максимум зараз: {formatInteger(companyMaxPurchasableShares)} шт.
-              </p>
-              <p className="mt-1">
-                Вартість покупки: {formatMoney(companyPurchaseCost)}
-              </p>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                className="h-11 rounded-md bg-indigo-600 px-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                disabled={!canSubmitCompanyPurchase}
-                onClick={() =>
-                  runRpc('resolve_company', {
-                    p_game_id: gameState.gameId,
-                    p_share_count: shareCount,
-                  })
-                }
-                type="button"
-              >
-                Купити
-              </button>
-              <button
-                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-                disabled={!canAct || busy}
-                onClick={() =>
-                  runRpc('resolve_company', {
-                    p_game_id: gameState.gameId,
-                    p_share_count: 0,
-                  })
-                }
-                type="button"
-              >
-                Не купляти
-              </button>
-            </div>
           </div>
         ) : null}
 
