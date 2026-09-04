@@ -152,11 +152,7 @@ export default function FullscreenToggle() {
 
   return (
     <div
-      className="fixed z-[90] opacity-45 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
-      style={{
-        right: 'max(0.75rem, env(safe-area-inset-right))',
-        top: 'max(0.75rem, env(safe-area-inset-top))',
-      }}
+      className="fullscreen-toggle fixed z-[90] opacity-45 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
     >
       <button
         aria-label={label}
