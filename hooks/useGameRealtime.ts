@@ -571,15 +571,13 @@ export function useGameRealtime({
 
     requestIdRef.current += 1;
 
-    setGameState((currentState) =>
-      mergeFreshGameState(currentState, {
-        ...nextState,
-        log:
-          currentState?.gameId === nextState.gameId
-            ? currentState.log
-            : nextState.log,
-      }),
-    );
+    setGameState((currentState) => ({
+      ...nextState,
+      log:
+        currentState?.gameId === nextState.gameId
+          ? currentState.log
+          : nextState.log,
+    }));
     setLastSyncedAt(new Date().toISOString());
     setResolvedGameId(nextState.gameId);
   }, []);
